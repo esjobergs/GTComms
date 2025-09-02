@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="sv">
 <head>
@@ -7,133 +6,74 @@
   <title>Inspektionsrapport</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
-    form, .card { display: grid; gap: 12px; }
+    form { display: grid; gap: 12px; }
     label { font-weight: 600; }
     input, select, button { font-size: 16px; padding: 8px; }
     .hint { color: #555; font-size: 14px; }
-    .error { color: #b00020; }
     .ok { color: #0a7f2e; }
-    .history { margin-top: 24px; }
-    .row { padding: 4px 0; border-bottom: 1px solid #eee; }
-    .muted { color: #666; font-size: 14px; }
+    .error { color: #b00020; }
   </style>
 </head>
 <body>
   <h1>Inspektionsrapport</h1>
-
-  <form id="form">
-    <div class="card">
-      <div>
-        <label for="name">Namn</label><br />
-        <input id="name" name="name" type="text" required maxlength="100" autocomplete="name" />
-      </div>
-
-      <div>
-        <label for="reg">Registreringsnummer på inbytesbil</label><br />
-        <input id="reg" name="reg" type="text" required maxlength="7"
-               pattern="^[A-Za-z0-9]{1,7}$" placeholder="t.ex. ABC123"
-               title="Endast A–Z och 0–9, max 7 tecken" />
-        <div class="hint">Endast A–Z och 0–9, max 7 tecken.</div>
-      </div>
-
-      <div>
-        <label for="status">Skick</label><br />
-        <select id="status" name="status" required>
-          <option value="">Välj ett alternativ…</option>
-          <option>Godkänd inspektion. Inga nya skador noterade</option>
-          <option>Inspektion behöver granskas</option>
-        </select>
-      </div>
-
-      <button type="submit">Skicka</button>
-      <p id="msg"></p>
+  <form id="f">
+    <div>
+      <label for="name">Namn</label><br />
+      <input id="name" name="name" required maxlength="100" />
     </div>
+    <div>
+      <label for="reg">Registreringsnummer</label><br />
+      <input id="reg" name="reg" required maxlength="7" pattern="^[A-Za-z0-9]{1,7}$" placeholder="ABC123" />
+      <div class="hint">Endast A–Z och 0–9, max 7 tecken.</div>
+    </div>
+    <div>
+      <label for="status">Skick</label><br />
+      <select id="status" name="status" required>
+        <option value="">Välj…</option>
+        <option>Godkänd inspektion. Inga nya skador noterade</option>
+        <option>Inspektion behöver granskas</option>
+      </select>
+    </div>
+    <button type="submit">Skicka</button>
   </form>
-
-  <div class="history">
-    <h2>Status & historik</h2>
-    <div id="summary" class="muted">Ingen data ännu.</div>
-    <div id="hist"></div>
-  </div>
-
+  <p id="msg"></p>
   <script>
-    // ======= BYT DESSA =======
-    const FLOW_URL = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";     // Flöde A (POST)
-    const HISTORY_URL = "https://prod-XX.westeurope.logic.azure.com:443/...";  // Flöde C (GET)
-    // =========================
+    const FLOW_URL = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c"; // <-- byt
+    const f = document.getElementById("f");
+    const msg = document.getElementById("msg");
+    const reg = document.getElementById("reg");
 
-    const el = (id) => document.getElementById(id);
-    const form = el("form"), msg = el("msg"), regInput = el("reg");
-
-    // Sätt REG till UPPERCASE, bara A-Z0-9
-    regInput.addEventListener("input", () => {
-      regInput.value = regInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+    reg.addEventListener("input", () => {
+      reg.value = reg.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0,7);
     });
 
-    form.addEventListener("submit", async (e) => {
+    f.addEventListener("submit", async (e) => {
       e.preventDefault();
-      msg.textContent = ""; msg.className = "";
-      if (!form.reportValidity()) return;
-
-      const payload = {
-        name: el("name").value.trim(),
-        reg: el("reg").value.trim().toUpperCase(),
-        status: el("status").value
-      };
-
+      if (!f.reportValidity()) return;
+      msg.textContent = "";
       try {
+        const body = {
+          name: document.getElementById("name").value.trim(),
+          reg: reg.value.trim().toUpperCase(),
+          status: document.getElementById("status").value
+        };
         const res = await fetch(FLOW_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Public-Token": "pk_example" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(body),
           mode: "cors",
           cache: "no-store"
         });
         if (!res.ok) throw new Error(await res.text());
-        msg.textContent = "Skickat! Meddelandet postades i Teams.";
+        msg.textContent = "Skickat! Kortet i Teams är uppdaterat.";
         msg.className = "ok";
-        // Börja visa historik för detta REG
-        startPolling(payload.reg);
+        f.reset();
       } catch (err) {
         console.error(err);
-        msg.textContent = "Kunde inte skicka just nu. Försök igen.";
+        msg.textContent = "Kunde inte skicka just nu.";
         msg.className = "error";
       }
     });
-
-    let pollTimer = null, currentReg = null;
-    function startPolling(reg) {
-      currentReg = reg;
-      if (pollTimer) clearInterval(pollTimer);
-      renderHistory(); // direkt
-      pollTimer = setInterval(renderHistory, 7000);
-    }
-
-    async function renderHistory() {
-      if (!currentReg) return;
-      try {
-        const res = await fetch(`${HISTORY_URL}?reg=${encodeURIComponent(currentReg)}`, { mode: "cors" });
-        if (!res.ok) return;
-        const data = await res.json();
-
-        const summary = [];
-        summary.push(`<div><strong>${data.name || ""} – ${data.reg}</strong></div>`);
-        summary.push(`<div>Externt skick: ${data.externalStatus || "-"}</div>`);
-        summary.push(`<div>Senaste intern status: ${data.lastInternalStatus || "-"}</div>`);
-        summary.push(`<div>Aktivt ärende: ${data.active ? "Ja" : "Nej"}</div>`);
-        el("summary").innerHTML = summary.join("");
-
-        const rows = (data.history || []).map(ev => {
-          const who = ev.Source === "teams" ? "Teams" : "Extern";
-          const ts = ev.Created || ev.created || "";
-          const status = ev.Status || "";
-          const cmt = ev.Comment ? ` – ${ev.Comment}` : "";
-          const usr = ev.User ? ` (${ev.User})` : "";
-          return `<div class="row"><span class="muted">${ts}</span> • ${who}: <strong>${status}</strong>${cmt}${usr}</div>`;
-        });
-        el("hist").innerHTML = rows.join("");
-      } catch {}
-    }
   </script>
 </body>
 </html>
