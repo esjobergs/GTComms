@@ -1,59 +1,231 @@
-<!doctype html><html lang="sv"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Inspektion – Ärendechatt</title>
-<style>
-:root{--r:14px;--p:14px;--m:760px}body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0c0f;color:#e8eaed;margin:0}
-.wrap{max-width:var(--m);margin:0 auto;padding:24px 16px 64px}h1{font-size:20px;margin:0 0 16px}
-form{display:grid;gap:12px;background:#111318;border:1px solid #1f2329;padding:16px;border-radius:var(--r)}
-.row{display:grid;gap:8px}label{font-size:12px;color:#c7cbd1;letter-spacing:.2px}
-input[type=text]{padding:12px;border-radius:10px;border:1px solid #2a2f37;background:#0f1116;color:#e8eaed;outline:none}
-.radios{display:flex;gap:12px;flex-wrap:wrap}.radio{background:#0f1116;border:1px solid #2a2f37;padding:10px 12px;border-radius:999px;display:flex;align-items:center;gap:8px;cursor:pointer}
-.radio input{accent-color:#6ea8fe}button{padding:12px 16px;border-radius:999px;border:1px solid #2a2f37;background:#1a73e8;color:#fff;font-weight:600;cursor:pointer}
-button[disabled]{opacity:.7;cursor:not-allowed}.chat{margin-top:16px;display:grid;gap:10px}
-.msg{max-width:70%;padding:12px;border-radius:14px;border:1px solid #232833;line-height:1.35}.me{justify-self:flex-end;background:#16335b}.sys{justify-self:flex-start;background:#141821}
-.meta{font-size:12px;color:#a9b0bb;margin-top:2px}.pill{display:inline-block;padding:2px 8px;border:1px solid #2a2f37;border-radius:999px;font-size:11px;color:#c7cbd1}
-.hint{margin-top:12px;font-size:12px;color:#a9b0bb}
-</style></head><body><div class="wrap">
-<h1>Inspektion – Ärendechatt</h1>
-<form id="f">
-  <div class="row">
-    <label for="reg">Registreringsnummer</label>
-    <input id="reg" name="regnr" type="text" required placeholder="ABC123" autocomplete="off"/>
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inspektion – Ärendechatt</title>
+  <style>
+    :root {
+      --radius: 14px;
+      --pad: 14px;
+      --max: 760px;
+
+      /* Färger – ljusgrå tema */
+      --bg: #f3f4f6;          /* sida */
+      --text: #111827;        /* primär text */
+      --muted: #6b7280;       /* sekundär text */
+      --card: #ffffff;        /* kort/form */
+      --border: #e5e7eb;      /* kantlinjer */
+      --input: #ffffff;       /* inputs */
+      --input-border: #d1d5db;
+
+      --btn: #2563eb;         /* knapp bakgrund */
+      --btn-text: #ffffff;
+      --btn-border: #1e40af;
+
+      --chip: #4b5563;        /* etiketttext */
+      --chip-border: #d1d5db;
+
+      --bubble-sys: #ffffff;  /* mottagna meddelanden */
+      --bubble-me: #e0f2fe;   /* skickade meddelanden (ljus blå ton) */
+      --bubble-border: #e5e7eb;
+      --accent: #2563eb;      /* radio accent */
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+    }
+
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 24px 16px 64px; }
+    h1 { font-size: 20px; margin: 0 0 16px; color: var(--text); }
+
+    form {
+      display: grid; gap: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 16px; border-radius: var(--radius);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+    }
+    .row { display: grid; gap: 8px; }
+    label { font-size: 12px; color: var(--muted); letter-spacing: .2px; }
+
+    input[type="text"] {
+      padding: 12px; border-radius: 10px;
+      border: 1px solid var(--input-border);
+      background: var(--input); color: var(--text);
+      outline: none;
+    }
+    input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgb(37 99 235 / 15%); }
+
+    .radios { display: flex; gap: 12px; flex-wrap: wrap; }
+    .radio {
+      background: var(--input);
+      border: 1px solid var(--input-border);
+      padding: 10px 12px; border-radius: 999px;
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+    }
+    .radio input { accent-color: var(--accent); }
+
+    button {
+      padding: 12px 16px; border-radius: 999px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn); color: var(--btn-text);
+      font-weight: 600; cursor: pointer;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+    }
+    button[disabled]{ opacity:.7; cursor:not-allowed;}
+
+    .chat { margin-top:16px; display:grid; gap:10px; }
+    .msg {
+      max-width: 70%; padding: 12px;
+      border-radius: 14px; border: 1px solid var(--bubble-border);
+      line-height: 1.35; background: var(--bubble-sys);
+    }
+    .me { justify-self: flex-end; background: var(--bubble-me); }
+    .sys { justify-self: flex-start; background: var(--bubble-sys); }
+    .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .pill {
+      display: inline-block; padding: 2px 8px;
+      border: 1px solid var(--chip-border); border-radius: 999px;
+      font-size: 11px; color: var(--chip);
+      background: #f9fafb;
+    }
+    .hint { margin-top:12px; font-size:12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Inspektion – Ärendechatt</h1>
+    <form id="f">
+      <div class="row">
+        <label for="reg">Registreringsnummer</label>
+        <input id="reg" name="regnr" type="text" required placeholder="ABC123" autocomplete="off" />
+      </div>
+      <div class="row">
+        <label>Skick</label>
+        <div class="radios">
+          <label class="radio">
+            <input type="radio" name="skick" value="inspektion genomförd utan anmärkning." required />
+            inspektion genomförd utan anmärkning.
+          </label>
+          <label class="radio">
+            <input type="radio" name="skick" value="Inspektion behöver granskas." required />
+            Inspektion behöver granskas.
+          </label>
+        </div>
+      </div>
+      <button type="submit">Skicka in</button>
+      <div class="hint">Uppdateringar visas nedan. Länken öppnas i Teams-kortet.</div>
+    </form>
+
+    <div id="chat" class="chat"></div>
   </div>
-  <div class="row">
-    <label>Skick</label>
-    <div class="radios">
-      <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." required/> inspektion genomförd utan anmärkning.</label>
-      <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas." required/> Inspektion behöver granskas.</label>
-    </div>
-  </div>
-  <button type="submit">Skicka in</button>
-  <div class="hint">Uppdateringar visas nedan. Länk öppnas i Teams-kortet.</div>
-</form>
-<div id="chat" class="chat"></div></div>
-<script>
-const FLOW_URL="https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";
-const GH_OWNER="esjobergs";
-const GH_REPO="gire-chat";
-const f=document.getElementById('f');const chat=document.getElementById('chat');let pollTimer=null;
-f.addEventListener('submit',async e=>{e.preventDefault();
-  const reg=(document.getElementById('reg').value||'').trim();
-  const skick=(new FormData(f)).get('skick'); if(!reg||!skick) return;
-  const btn=f.querySelector('button'); btn.disabled=true;
-  try{await fetch(FLOW_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({regnr:reg,skick})});}catch(e){}
-  chat.innerHTML=''; addMsg(`Skickat: ${reg} – ${skick}`,'me'); startPolling(reg); btn.disabled=false;
-});
-function addMsg(t,who='sys',meta=''){const d=document.createElement('div');d.className=`msg ${who==='me'?'me':'sys'}`;d.innerHTML=t.replace(/\n/g,'<br/>');chat.appendChild(d);
- if(meta){const m=document.createElement('div');m.className='meta';m.textContent=meta;chat.appendChild(m)} chat.scrollTop=chat.scrollHeight}
-function startPolling(reg){if(pollTimer) clearInterval(pollTimer); fetchAndRender(reg); pollTimer=setInterval(()=>fetchAndRender(reg),10000)}
-async function fetchAndRender(reg){
-  const q=encodeURIComponent(`repo:${GH_OWNER}/${GH_REPO} "${reg}" in:title state:open type:issue`);
-  const r=await fetch(`https://api.github.com/search/issues?q=${q}&per_page=1`); if(!r.ok) return;
-  const data=await r.json(); if(!data.items||!data.items.length) return;
-  const issue=data.items[0]; const number=issue.number;
-  chat.innerHTML=''; addMsg(`Ärende öppnat för <span class="pill">${reg}</span>`,'sys');
-  if(issue.body){addMsg(issue.body,'sys',`Issue #${number}`)}
-  const rc=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${number}/comments`); if(!rc.ok) return;
-  const comments=await rc.json(); for(const c of comments){addMsg(c.body||'','sys',new Date(c.created_at).toLocaleString())}
-}
-</script></body></html>
+
+  <script>
+    // ===== KONFIGURATION =====
+    const FLOW_URL = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";
+    const GH_OWNER = "esjobergs"; // <-- BYT TILL DITT GITHUB-KONTO/ORG
+    const GH_REPO  = "gire-chat";               // byt om ditt repo heter annat
+    // =========================
+
+    const f = document.getElementById('f');
+    const chat = document.getElementById('chat');
+    let pollTimer = null;
+
+    // Skicka till Power Automate – Beacon (ingen preflight) + fetch fallback
+    async function sendToFlow(payload){
+      try {
+        const blob = new Blob([JSON.stringify(payload)], { type: 'text/plain;charset=UTF-8' });
+        const ok = navigator.sendBeacon(FLOW_URL, blob);
+        if (ok) return;
+      } catch (e) { /* fallthrough till fetch */ }
+
+      try {
+        await fetch(FLOW_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        // Ignorera – UI fortsätter och GitHub-pollning visar ev. uppdateringar
+      }
+    }
+
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const reg = (document.getElementById('reg').value || '').trim();
+      const skick = (new FormData(f)).get('skick');
+      if(!reg || !skick) return;
+
+      const btn = f.querySelector('button');
+      btn.disabled = true;
+
+      await sendToFlow({ regnr: reg, skick });
+
+      // Visa lokalt och starta polling mot GitHub
+      chat.innerHTML = '';
+      addMsg(`Skickat: ${reg} – ${skick}`, 'me');
+      startPolling(reg);
+
+      btn.disabled = false;
+    });
+
+    function addMsg(txt, who='sys', meta='') {
+      const d = document.createElement('div');
+      d.className = `msg ${who==='me'?'me':'sys'}`;
+      d.innerHTML = txt.replace(/\n/g,'<br/>');
+      chat.appendChild(d);
+      if(meta){
+        const m = document.createElement('div');
+        m.className = 'meta';
+        m.textContent = meta;
+        chat.appendChild(m);
+      }
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function startPolling(reg) {
+      if(pollTimer) clearInterval(pollTimer);
+      fetchAndRender(reg); // direkt
+      pollTimer = setInterval(() => fetchAndRender(reg), 10000); // var 10:e sekund
+    }
+
+    async function fetchAndRender(reg) {
+      // 1) Hitta issue via sökning i titel
+      const q = encodeURIComponent(`repo:${GH_OWNER}/${GH_REPO} "${reg}" in:title state:open type:issue`);
+      const url = `https://api.github.com/search/issues?q=${q}&per_page=1`;
+      try {
+        const r = await fetch(url);
+        if(!r.ok) return;
+        const data = await r.json();
+        if(!data.items || !data.items.length) return;
+
+        const issue = data.items[0];
+        const number = issue.number;
+
+        // Töm och rendera
+        chat.innerHTML = '';
+        addMsg(`Ärende öppnat för <span class="pill">${reg}</span>`, 'sys');
+        if(issue.body){
+          addMsg(issue.body, 'sys', `Issue #${number}`);
+        }
+
+        // 2) Hämta kommentarer
+        const rc = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/issues/${number}/comments`);
+        if(!rc.ok) return;
+        const comments = await rc.json();
+        for(const c of comments){
+          const ts = c.created_at ? new Date(c.created_at).toLocaleString() : '';
+          addMsg(c.body || '', 'sys', ts);
+        }
+      } catch(e) {
+        // tyst fail
+      }
+    }
+  </script>
+</body>
+</html>
