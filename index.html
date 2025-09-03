@@ -69,8 +69,8 @@
   </div>
 
   <script>
-    /* BYT dessa: */
-    const SUBMIT_ENDPOINT = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";
+    /* Fyll i dina endpoints: */
+    const SUBMIT_ENDPOINT = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=uJtJolycCXCWHE_SdCn_TrM1QaZh1mGzQlD55CCw7Us";
     const STATUS_ENDPOINT = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/d3be178141a745c28722a8f828540b4c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Qm1LcaJAqdoqxYtIV3kq69wHmyALTFBMOcR01wnRo0o";
     const TOKEN = "TOKEN_ABC123";      // valfritt
     const DEBUG = false;
@@ -83,10 +83,20 @@
 
     const POLL_INTERVAL_MS = 5000;
     const MAX_POLL_MS = 30 * 60 * 1000;
-    const polls = new Map(); // reg -> { timer, lastStatus, startedAt }
+    const DEDUP_WINDOW_MS = 3000; // skydd mot temporära dubletter
+
+    const polls = new Map(); // reg -> { timer, lastStatus, lastPrintedAt, startedAt }
     let inFlight = false;
     const log = (...a)=>{ if(DEBUG) console.log('[chat]', ...a); };
 
+    /* ===== helpers ===== */
+    const keyForStatus = r => `chat:lastStatus:${r}`;
+    const getStoredStatus = r => { try { return sessionStorage.getItem(keyForStatus(r)); } catch(_) { return null; } };
+    const setStoredStatus = (r, s) => { try { if(s!=null) sessionStorage.setItem(keyForStatus(r), s); } catch(_){} };
+
+    function normStatus(s){
+      return (s||'').toString().trim().replace(/\.+$/,''); // ta bort avslutande punkt
+    }
     function addBubble(html, who='them'){ const b=document.createElement('div'); b.className='bubble '+(who==='me'?'me':'them'); b.innerHTML=html; chat.appendChild(b); chat.scrollTop=chat.scrollHeight; }
     function addMeta(text){ const m=document.createElement('div'); m.className='meta'; m.textContent=text; chat.appendChild(m); chat.scrollTop=chat.scrollHeight; }
     function currentSkick(){ const r=document.querySelector('input[name="skick"]:checked'); return r?r.value:""; }
@@ -95,6 +105,7 @@
 
     reg.addEventListener('input', ()=>{ reg.value = reg.value.toUpperCase(); });
 
+    /* ===== submit ===== */
     form.addEventListener('submit', async (e)=>{ e.preventDefault(); await submitCase(); });
 
     async function submitCase(){
@@ -114,7 +125,7 @@
         let data=null; try { data = await res.json(); } catch(_){}
         log('submit response', data);
 
-        // Acceptera både {"ok":true,"initial":...} och get_status-format
+        // Acceptera {"ok":true,"initial":...} och get_status-format
         let st='', link=dashboardLink(r);
         if(data && data.initial){
           st = data.initial.status || '';
@@ -123,8 +134,14 @@
           st = parseStatus(data.status) || '';
           link = data.link || link;
         }
-        if(st){ addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`); }
-        startPoll(r, st);
+
+        const prev = getStoredStatus(r);
+        const stNorm = normStatus(st);
+        if(stNorm && stNorm !== prev){
+          addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${stNorm}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+          setStoredStatus(r, stNorm);
+        }
+        startPoll(r, stNorm || prev || null);
       }catch(err){
         addBubble('Kunde inte nå servern. Kontrollera nätet och försök igen.','them');
         console.error(err);
@@ -133,9 +150,11 @@
       }
     }
 
+    /* ===== polling (med dedupe + debounce + storage) ===== */
     function startPoll(r, lastKnownStatus=null){
       stopPoll(r);
-      const state={ lastStatus:lastKnownStatus, startedAt:Date.now() };
+      const initial = lastKnownStatus != null ? normStatus(lastKnownStatus) : normStatus(getStoredStatus(r));
+      const state={ lastStatus: initial || null, lastPrintedAt: 0, startedAt: Date.now() };
       polls.set(r,state);
 
       const tick=async ()=>{
@@ -155,20 +174,32 @@
                         || (typeof data.found === 'undefined');
           if(!data || notFound) return;
 
-          const status = parseStatus(data.status) || '';
+          const raw = parseStatus(data.status);
+          const status = normStatus(raw);
           const link = data.link || dashboardLink(r);
           if(!status) return;
 
+          const now = Date.now();
+          const stored = getStoredStatus(r);
+
+          // Första visningen efter kall start
           if(state.lastStatus == null){
-            addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+            if(status !== stored){
+              addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+              state.lastPrintedAt = now;
+              setStoredStatus(r, status);
+            }
             state.lastStatus = status;
             if(status === 'Klar') stopPoll(r);
             return;
           }
 
-          if(status !== state.lastStatus){
+          // Ny bubbla endast när status byts och inte precis nyss (debounce)
+          if(status !== state.lastStatus && (now - state.lastPrintedAt) > DEDUP_WINDOW_MS){
             addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
             state.lastStatus = status;
+            state.lastPrintedAt = now;
+            setStoredStatus(r, status);
             if(status === 'Klar') stopPoll(r);
           }
         }catch(err){
@@ -182,8 +213,9 @@
 
     function stopPoll(r){ const s=polls.get(r); if(s && s.timer) clearInterval(s.timer); polls.delete(r); }
 
-    refreshBtn.addEventListener('click', ()=>{ const r=(reg.value||'').trim(); if(r) startPoll(r, null); });
-    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ const r=(reg.value||'').trim(); if(r) startPoll(r, null); }});
+    // Använd lagrad status när du manuellt uppdaterar/återvänder till fliken
+    refreshBtn.addEventListener('click', ()=>{ const r=(reg.value||'').trim(); if(r) startPoll(r, getStoredStatus(r)); });
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ const r=(reg.value||'').trim(); if(r) startPoll(r, getStoredStatus(r)); }});
   </script>
 </body>
 </html>
