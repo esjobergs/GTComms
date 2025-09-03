@@ -81,87 +81,90 @@
     <section class="chat-wrap"><div id="chat" class="chat card"></div></section>
   </div>
 
- <script>
-  /* Fyll i dina endpoints (SUBMIT måste vara korrekt) */
-  const SUBMIT_ENDPOINT  = window.SUBMIT_ENDPOINT || "DIN_SUBMIT_URL_HÄR";
-  const STATUS_ENDPOINT  = window.STATUS_ENDPOINT || "DIN_STATUS_URL_HÄR";
+<script>
+  /* ====== KONFIG ====== */
+  const SUBMIT_ENDPOINT  = "DIN_SUBMIT_URL_HÄR";   // din submit-flow URL (https...sig=...)
+  const STATUS_ENDPOINT  = "DIN_STATUS_URL_HÄR";   // ditt separata get_status-flow (kan lämnas tomt tills vidare)
   const TOKEN = "TOKEN_ABC123";
-  const DEBUG = true; // tillfälligt: true så vi ser loggar
+  const DEBUG = true; // sätt till false när det funkar
 
+  /* ====== HJÄLPFUNKTIONER (MÅSTE LIGGA FÖRST) ====== */
+  function norm(s){ return (s ?? '').toString().trim(); }
+  function normStatus(s){ return norm(s).replace(/\.+$/,''); }
+
+  async function postJson(url, payload){
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const text = await res.text(); // läs alltid text (även på fel)
+    let json=null; try{ json = JSON.parse(text); }catch(_){}
+    return { ok:res.ok, status:res.status, text, json };
+  }
+  function showHttpError(where, r){
+    addBubble(`❌ ${where} ${r.status}: ${r.text?.slice(0,300) || '(ingen body)'}`, 'them');
+  }
+  const log = (...a)=>{ if(DEBUG) console.log('[chat]', ...a); };
+
+  /* ====== DOM ====== */
   const chat = document.getElementById('chat');
   const reg  = document.getElementById('reg');
   const form = document.getElementById('form');
   const send = document.getElementById('send');
   const refreshBtn = document.getElementById('refresh');
+  const msgEl = document.getElementById('message'); // kan vara null i vissa versioner
 
-  // OBS: message-fältet kanske inte finns i din version → gör null-säkert
-  const msgEl = document.getElementById('message'); // kan vara null
+  /* ====== UI helpers ====== */
+  function addBubble(html, who='them'){
+    const b=document.createElement('div');
+    b.className='bubble '+(who==='me'?'me':'them');
+    b.innerHTML=html;
+    chat.appendChild(b);
+    chat.scrollTop=chat.scrollHeight;
+  }
+  function addMeta(text){
+    const m=document.createElement('div');
+    m.className='meta';
+    m.textContent=text;
+    chat.appendChild(m);
+    chat.scrollTop=chat.scrollHeight;
+  }
+  function currentSkick(){
+    const r=document.querySelector('input[name="skick"]:checked');
+    return r?r.value:"";
+  }
+  function dashboardLink(r){
+    return `https://giremobility.com/customer/dashboard?page=1&pageSize=50&search=${encodeURIComponent(r)}`;
+  }
 
-  // Visa JS-fel i chatten (så vi ser varför inget POST:as)
+  /* ====== FELVISNING FÖR JS ====== */
   window.addEventListener('error', (e)=>{
-    const b=document.createElement('div'); b.className='bubble them';
-    b.textContent = '❌ JS-fel: ' + (e.message || e.error?.message || e.filename);
-    chat.appendChild(b); chat.scrollTop=chat.scrollHeight;
+    addBubble('❌ JS-fel: ' + (e.message || e.error?.message || e.filename), 'them');
   });
   window.addEventListener('unhandledrejection', (e)=>{
-    const b=document.createElement('div'); b.className='bubble them';
-    b.textContent = '❌ Promise-fel: ' + (e.reason?.message || e.reason || '');
-    chat.appendChild(b); chat.scrollTop=chat.scrollHeight;
+    addBubble('❌ Promise-fel: ' + (e.reason?.message || e.reason || ''), 'them');
   });
 
-  // Liten fetch-wrapper som visar HTTP-fel (t.ex. CORS/preflight/403)
-  async function postJson(url, payload){
-    const res  = await fetch(url, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text(); // läs alltid text (även när fel)
-    let json=null; try{ json=JSON.parse(text); }catch(_){}
-    return { ok:res.ok, status:res.status, text, json };
-  }
-  function showHttpError(where, r){
-    const msg = `❌ ${where} ${r.status}: ${r.text?.slice(0,300) || '(ingen body)'}`;
-    const b=document.createElement('div'); b.className='bubble them'; b.textContent=msg;
-    chat.appendChild(b); chat.scrollTop=chat.scrollHeight;
-  }
-
-  const log = (...a)=>{ if(DEBUG) console.log('[chat]', ...a); };
-  function addBubble(html, who='them'){ const b=document.createElement('div'); b.className='bubble '+(who==='me'?'me':'them'); b.innerHTML=html; chat.appendChild(b); chat.scrollTop=chat.scrollHeight; }
-  function addMeta(text){ const m=document.createElement('div'); m.className='meta'; m.textContent=text; chat.appendChild(m); chat.scrollTop=chat.scrollHeight; }
-  function currentSkick(){ const r=document.querySelector('input[name="skick"]:checked'); return r?r.value:""; }
-  function dashboardLink(r){ return `https://giremobility.com/customer/dashboard?page=1&pageSize=50&search=${encodeURIComponent(r)}`; }
-
-  // Versalisera regnr
-  reg.addEventListener('input', ()=>{ reg.value = reg.value.toUpperCase(); });
-
-  form.addEventListener('submit', async (e)=>{ e.preventDefault(); await submitCase(); });
+  /* ====== Beteende ====== */
+  reg?.addEventListener('input', ()=>{ reg.value = reg.value.toUpperCase(); });
+  form?.addEventListener('submit', async (e)=>{ e.preventDefault(); await submitCase(); });
 
   let inFlight=false;
 
-   // Normalisera/trimma strängar säkert
-function norm(s){ return (s ?? '').toString().trim(); }
-// (om du använder status-dedupe någonstans)
-function normStatus(s){ return norm(s).replace(/\.+$/, ''); }
-
-
-  // === SUBMIT (robust, felvisande) ===
   async function submitCase(){
     if(inFlight) return;
-    const r=(reg.value||'').trim(); if(!r){ reg.focus(); return; }
+    const r = norm(reg?.value); if(!r){ reg?.focus(); return; }
     const skick   = currentSkick();
-    const message = msgEl ? (msgEl.value||'').trim() : ''; // null-säkert
+    const message = norm(msgEl?.value);
 
-    inFlight=true; send.disabled=true;
-    addBubble(`Du: ${r} – <i>${skick}</i>`,'me');
-    if(message) addBubble(`Du: ${message}`,'me');
+    inFlight=true; if(send) send.disabled=true;
+    addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
+    if(message) addBubble(`Du: ${message}`, 'me');
     addMeta('Skickar till Submit-endpoint…');
 
     try{
-      // LOG: säkerställ att vi postar till rätt URL
       log('POST → SUBMIT', SUBMIT_ENDPOINT, {operation:'submit', token:TOKEN, registreringsnummer:r, skick, message});
-
-      // Viktigt: Om SUBMIT_ENDPOINT är fel / tom — då blir det 404/NetworkError. Nu ser du det i bubblan.
       const resp = await postJson(SUBMIT_ENDPOINT, {
         operation:'submit',
         token:TOKEN,
@@ -172,171 +175,44 @@ function normStatus(s){ return norm(s).replace(/\.+$/, ''); }
 
       if(!resp.ok){
         showHttpError('SUBMIT', resp);
-        return; // avbryt – inget mer att göra
+        return;
       }
 
       const data = resp.json || {};
       log('submit response', data);
 
-      // Visa initial status om den finns, starta sedan din polling (din tidigare startPoll kan ligga kvar)
-      let st   = '';
-      let link = dashboardLink(r);
+      // plocka ev. initial status
+      let st = '', link = dashboardLink(r);
       if(data.initial){
         st   = data.initial.status || '';
         link = data.initial.link || link;
-      } else if(typeof data.status !== 'undefined'){
+      }else if(typeof data.status !== 'undefined'){
         st   = typeof data.status==='string' ? data.status : (data.status && data.status.Value) ? data.status.Value : '';
         link = data.link || link;
       }
+
       if(st){
         addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
-      } else {
+      }else{
         addBubble(`ℹ️ Submit lyckades men utan status i svaret.`, 'them');
       }
 
-      // TODO: kalla din befintliga startPoll(r, st) här
+      // starta gärna din polling här om du vill
       // startPoll(r, st || null);
 
     }catch(err){
-      const b=document.createElement('div'); b.className='bubble them';
-      b.textContent='❌ Nätverksfel vid SUBMIT: ' + (err?.message || err);
-      chat.appendChild(b); chat.scrollTop=chat.scrollHeight;
+      addBubble('❌ Nätverksfel vid SUBMIT: ' + (err?.message || err), 'them');
       console.error(err);
     }finally{
-      setTimeout(()=>{ inFlight=false; send.disabled=false; },600);
+      setTimeout(()=>{ if(send) send.disabled=false; inFlight=false; },600);
     }
   }
 
-    async function submitCase(){
-      if(inFlight) return;
-      const r=norm(reg.value); if(!r){ reg.focus(); return; }
-      const skick=currentSkick();
-      const message = norm(msg.value);
+  // Minimal stub så att ev. anrop inte kraschar om STATUS_ENDPOINT ej satt än
+  function startPoll(r, lastKnownStatus){ /* valfritt – implementera senare */ }
 
-      clearClosedFlag(r); // nytt ärende
-
-      inFlight=true; send.disabled=true;
-      addBubble(`Du: ${r} – <i>${skick}</i>`,'me');
-      if(message){ addBubble(`Du: ${message}`,'me'); setStoredMsg(r, message); }
-      addMeta('Skickat till Tesla…');
-
-      try{
-        const res = await fetch(SUBMIT_ENDPOINT,{
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ operation:'submit', token:TOKEN, registreringsnummer:r, skick, message })
-        });
-        let data=null; try { data = await res.json(); } catch(_){}
-        log('submit response', data);
-
-        // initial status
-        let st='', link=dashboardLink(r);
-        if(data && data.initial){
-          st = data.initial.status || '';
-          link = data.initial.link || link;
-        } else if (data && typeof data.status !== 'undefined'){
-          st = parseStatus(data.status) || '';
-          link = data.link || link;
-        }
-        if(st){
-          const prev = getStoredStatus(r);
-          if(st !== prev){
-            addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
-            setStoredStatus(r, st);
-            if(st === 'Klar' && !isClosedPosted(r)){ addBubble(CLOSED_MSG); markClosedPosted(r); }
-          }
-        }
-        msg.value=''; // töm rutan
-        startPoll(r, st || getStoredStatus(r), getStoredMsg(r));
-      }catch(err){
-        addBubble('Kunde inte nå servern. Försök igen.','them');
-        console.error(err);
-      }finally{
-        setTimeout(()=>{ inFlight=false; send.disabled=false; },600);
-      }
-    }
-
-    /* === polling (status + fritext) === */
-    function startPoll(r, lastKnownStatus=null, lastKnownMsg=null){
-      stopPoll(r);
-      const state={ lastStatus:lastKnownStatus || null, lastMsg:lastKnownMsg || null, startedAt:Date.now() };
-      polls.set(r,state);
-
-      const tick=async ()=>{
-        if(Date.now()-state.startedAt>MAX_POLL_MS){ stopPoll(r); return; }
-        try{
-          const res=await fetch(STATUS_ENDPOINT,{
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({ registreringsnummer:r, operation:'get_status', token:TOKEN })
-          });
-          if(!res.ok) return;
-
-          const data=await res.json().catch(()=>({}));
-          if(!data) return;
-          const notFound = (data.found === false)
-                        || (typeof data.found === 'string' && data.found.toLowerCase() === 'false');
-          if(notFound) return;
-
-          // STATUS
-          const status = norm(parseStatus(data.status));
-          const link = data.link || dashboardLink(r);
-
-          if(status){
-            if(state.lastStatus == null){
-              const prev = getStoredStatus(r);
-              if(status !== prev){
-                addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
-                setStoredStatus(r, status);
-              }
-              state.lastStatus = status;
-              if(status === 'Klar' && !isClosedPosted(r)){ addBubble(CLOSED_MSG); markClosedPosted(r); stopPoll(r); }
-            } else if(status !== state.lastStatus){
-              addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
-              state.lastStatus = status; setStoredStatus(r, status);
-              if(status === 'Klar' && !isClosedPosted(r)){ addBubble(CLOSED_MSG); markClosedPosted(r); stopPoll(r); }
-            }
-          }
-
-          // FRITEXT
-          const lastMsg = norm(data.lastMessage);
-          const lastBy  = norm(data.lastMessageBy).toLowerCase(); // "kund" / "team" (rekommenderat)
-          if(lastMsg){
-            // Undvik eko: om kunden själv skrev sist (vi visade redan "Du:")
-            const isFromCustomer = (lastBy === 'kund' || lastBy === 'extern');
-            if(state.lastMsg == null){
-              const prevMsg = getStoredMsg(r);
-              if(lastMsg !== prevMsg && !isFromCustomer){
-                addBubble(`Team: ${lastMsg}`,'them');
-                setStoredMsg(r, lastMsg);
-              }
-              state.lastMsg = lastMsg;
-            } else if(lastMsg !== state.lastMsg && !isFromCustomer){
-              addBubble(`Team: ${lastMsg}`,'them');
-              state.lastMsg = lastMsg; setStoredMsg(r, lastMsg);
-            }
-          }
-        }catch(err){
-          console.error(err);
-        }
-      };
-
-      state.timer=setInterval(tick, POLL_INTERVAL_MS);
-      tick();
-    }
-
-    function stopPoll(r){
-      const s=polls.get(r);
-      if(s && s.timer) clearInterval(s.timer);
-      polls.delete(r);
-    }
-
-    refreshBtn.addEventListener('click', ()=>{
-      const r=norm(reg.value); if(r) startPoll(r, getStoredStatus(r), getStoredMsg(r));
-    });
-    document.addEventListener('visibilitychange', ()=>{
-      if(!document.hidden){
-        const r=norm(reg.value); if(r) startPoll(r, getStoredStatus(r), getStoredMsg(r));
-      }
-    });
-  </script>
+  // Manuell uppdateringsknapp (om du använder polling senare)
+  refreshBtn?.addEventListener('click', ()=>{ /* startPoll(reg.value.trim(), null); */ });
+</script>
 </body>
 </html>
