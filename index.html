@@ -161,7 +161,7 @@
     inFlight=true; if(send) send.disabled=true;
     addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
     if(message) addBubble(`Du: ${message}`, 'me');
-    addMeta('Skickar till Submit-endpoint…');
+    addMeta('Skickar till Tesla…');
 
     try{
       log('POST → SUBMIT', SUBMIT_ENDPOINT, {operation:'submit', token:TOKEN, registreringsnummer:r, skick, message});
@@ -192,7 +192,7 @@
       }
 
       if(st){
-        addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+        addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
       }else{
         addBubble(`ℹ️ Submit lyckades men utan status i svaret.`, 'them');
       }
