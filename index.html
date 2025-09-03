@@ -33,7 +33,7 @@
         <button id="send" class="button">Skicka</button>
       </div>
       <div class="radios" id="skickGroup">
-        <label><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." checked/> inspektion genomförd utan anmärkning.</label>
+        <label><input type="radio" name="skick" value="Inspektion genomförd utan anmärkning." checked/> inspektion genomförd utan anmärkning.</label>
         <label><input type="radio" name="skick" value="Inspektion behöver granskas."/> Inspektion behöver granskas.</label>
       </div>
     </div>
@@ -44,8 +44,8 @@
   </div>
 
   <script>
-    const ENDPOINT = "https://prod-97.westus.logic.azure.com/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";
-    const TOKEN = "TOKEN_ABC123"; // <-- byt till din token
+    const ENDPOINT = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";
+    const TOKEN = "TOKEN_ABC123"; // byt till din
 
     const chat = document.getElementById('chat');
     const reg = document.getElementById('reg');
@@ -53,11 +53,13 @@
 
     let lastStatus = null;
     let pollTimer = null;
+    let pollStartedAt = 0;
+    const MAX_POLL_MS = 180000; // 3 min
 
-    function addBubble(text, who = 'them') {
+    function addBubble(html, who = 'them') {
       const b = document.createElement('div');
       b.className = 'bubble ' + (who === 'me' ? 'me':'them');
-      b.innerHTML = text;
+      b.innerHTML = html;
       chat.appendChild(b);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -78,11 +80,9 @@
       if (!r) { reg.focus(); return; }
       const skick = currentSkick();
 
-      // Visa min skick-bubbla
       addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
       addMeta('Skickat till Teams…');
 
-      // Skicka till Power Automate (submit)
       try {
         await fetch(ENDPOINT, {
           method: 'POST',
@@ -95,18 +95,19 @@
           })
         });
       } catch (e) {
-        addBubble('Kunde inte skicka till servern. Försök igen.', 'them');
-        return;
+        addBubble('Kunde inte nå servern. Försök igen.', 'them'); return;
       }
 
-      // Starta polling för status
+      // starta polling
       lastStatus = null;
+      pollStartedAt = Date.now();
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(() => pollStatus(r), 5000);
-      pollStatus(r); // första direkt
+      pollStatus(r);
     }
 
     async function pollStatus(r) {
+      if (Date.now() - pollStartedAt > MAX_POLL_MS) { clearInterval(pollTimer); pollTimer = null; return; }
       try {
         const res = await fetch(ENDPOINT, {
           method: 'POST',
@@ -120,19 +121,22 @@
         const data = await res.json();
         if (data && data.found) {
           const link = data.link;
-          const status = data.status || '(ingen status ännu)';
+          const raw = data.status;
+          const status = typeof raw === 'string' ? raw : (raw && raw.Value) ? raw.Value : '(ingen status ännu)';
           if (status !== lastStatus) {
             addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
             lastStatus = status;
+            if (status === 'Klar') { clearInterval(pollTimer); pollTimer = null; }
           }
         }
-      } catch (e) {
-        // tyst fel – prova igen vid nästa poll
-      }
+      } catch (e) { /* tyst fel, prova igen vid nästa poll */ }
     }
 
     send.addEventListener('click', submitCase);
     reg.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitCase(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    });
   </script>
 </body>
 </html>
