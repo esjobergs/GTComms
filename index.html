@@ -68,7 +68,7 @@
         </div>
 
         <div class="radios">
-          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." > <span>inspektion genomförd utan anmärkning.</span></label>
+          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning."> <span>inspektion genomförd utan anmärkning.</span></label>
           <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas."> <span>Inspektion behöver granskas.</span></label>
         </div>
 
@@ -83,14 +83,14 @@
 
 <script>
   /* ====== KONFIG ====== */
-  const SUBMIT_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=uJtJolycCXCWHE_SdCn_TrM1QaZh1mGzQlD55CCw7Us";   // din submit-flow URL (https...sig=...)
-  const STATUS_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/d3be178141a745c28722a8f828540b4c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Qm1LcaJAqdoqxYtIV3kq69wHmyALTFBMOcR01wnRo0o";   // ditt separata get_status-flow (kan lämnas tomt tills vidare)
+  const SUBMIT_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=uJtJolycCXCWHE_SdCn_TrM1QaZh1mGzQlD55CCw7Us";   // submit-flow
+  const STATUS_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/d3be178141a745c28722a8f828540b4c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Qm1LcaJAqdoqxYtIV3kq69wHmyALTFBMOcR01wnRo0o";   // get_status-flow
   const TOKEN = "TOKEN_ABC123";
-  const DEBUG = true; // sätt till false när det funkar
+  const DEBUG = true; // stäng av när allt funkar
 
-  /* ====== HJÄLPFUNKTIONER (MÅSTE LIGGA FÖRST) ====== */
+  /* ====== HJÄLPFUNKTIONER ====== */
   function norm(s){ return (s ?? '').toString().trim(); }
-  function normStatus(s){ return norm(s).replace(/\.+$/,''); }
+  function normStatus(s){ return norm(s).replace(/\.+$/,''); } // ta bort avslutande punkt
 
   async function postJson(url, payload){
     const res = await fetch(url, {
@@ -98,7 +98,7 @@
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     });
-    const text = await res.text(); // läs alltid text (även på fel)
+    const text = await res.text();
     let json=null; try{ json = JSON.parse(text); }catch(_){}
     return { ok:res.ok, status:res.status, text, json };
   }
@@ -113,7 +113,7 @@
   const form = document.getElementById('form');
   const send = document.getElementById('send');
   const refreshBtn = document.getElementById('refresh');
-  const msgEl = document.getElementById('message'); // kan vara null i vissa versioner
+  const msgEl = document.getElementById('message');
 
   /* ====== UI helpers ====== */
   function addBubble(html, who='them'){
@@ -138,6 +138,15 @@
     return `https://giremobility.com/customer/dashboard?page=1&pageSize=50&search=${encodeURIComponent(r)}`;
   }
 
+  /* ====== LAGRING (dedupe) ====== */
+  const keyStatus = r => `chat:lastStatus:${r}`;
+  const getStoredStatus = r => { try { return sessionStorage.getItem(keyStatus(r)); } catch(_) { return null; } };
+  const setStoredStatus = (r, s) => { try { if(s!=null) sessionStorage.setItem(keyStatus(r), s); } catch(_){} };
+
+  const keyMsg = r => `chat:lastMsg:${r}`;
+  const getStoredMsg = r => { try { return sessionStorage.getItem(keyMsg(r)); } catch(_) { return null; } };
+  const setStoredMsg = (r, s) => { try { if(s!=null) sessionStorage.setItem(keyMsg(r), s); } catch(_){} };
+
   /* ====== FELVISNING FÖR JS ====== */
   window.addEventListener('error', (e)=>{
     addBubble('❌ JS-fel: ' + (e.message || e.error?.message || e.filename), 'them');
@@ -151,6 +160,9 @@
   form?.addEventListener('submit', async (e)=>{ e.preventDefault(); await submitCase(); });
 
   let inFlight=false;
+  const POLL_INTERVAL_MS = 5000;
+  const MAX_POLL_MS = 30 * 60 * 1000;
+  const polls = new Map(); // reg -> { timer, lastStatus, lastMsg, startedAt }
 
   async function submitCase(){
     if(inFlight) return;
@@ -160,7 +172,7 @@
 
     inFlight=true; if(send) send.disabled=true;
     addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
-    if(message) addBubble(`Du: ${message}`, 'me');
+    if(message){ addBubble(`Du: ${message}`,'me'); setStoredMsg(r, message); }
     addMeta('Skickar till Tesla…');
 
     try{
@@ -181,7 +193,7 @@
       const data = resp.json || {};
       log('submit response', data);
 
-      // plocka ev. initial status
+      // initial status (acceptera båda formaten)
       let st = '', link = dashboardLink(r);
       if(data.initial){
         st   = data.initial.status || '';
@@ -192,13 +204,18 @@
       }
 
       if(st){
-        addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
+        const prev = getStoredStatus(r);
+        const stNorm = normStatus(st);
+        if(stNorm !== prev){
+          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${stNorm}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
+          setStoredStatus(r, stNorm);
+        }
       }else{
         addBubble(`ℹ️ Submit lyckades men utan status i svaret.`, 'them');
       }
 
-      // starta gärna din polling här om du vill
-      // startPoll(r, st || null);
+      msgEl.value=''; // töm meddelanderutan efter skick
+      startPoll(r, getStoredStatus(r), getStoredMsg(r));
 
     }catch(err){
       addBubble('❌ Nätverksfel vid SUBMIT: ' + (err?.message || err), 'them');
@@ -208,11 +225,90 @@
     }
   }
 
-  // Minimal stub så att ev. anrop inte kraschar om STATUS_ENDPOINT ej satt än
-  function startPoll(r, lastKnownStatus){ /* valfritt – implementera senare */ }
+  /* ====== POLLING: status + fritext (teamets svar) ====== */
+  function startPoll(r, lastKnownStatus=null, lastKnownMsg=null){
+    stopPoll(r);
+    const state={ lastStatus:lastKnownStatus || null, lastMsg:lastKnownMsg || null, startedAt:Date.now() };
+    polls.set(r,state);
 
-  // Manuell uppdateringsknapp (om du använder polling senare)
-  refreshBtn?.addEventListener('click', ()=>{ /* startPoll(reg.value.trim(), null); */ });
+    const tick = async ()=>{
+      if(Date.now()-state.startedAt > MAX_POLL_MS){ stopPoll(r); return; }
+
+      const resp = await postJson(STATUS_ENDPOINT, {
+        registreringsnummer:r,
+        operation:'get_status',
+        token:TOKEN
+      });
+      if(!resp.ok){ showHttpError('STATUS', resp); return; }
+
+      const data = resp.json || {};
+      log('get_status data', data);
+
+      // --- STATUS ---
+      const status = (typeof data.status==='string')
+        ? data.status
+        : (data.status && data.status.Value) ? data.status.Value : '';
+
+      const stNorm = normStatus(status);
+      const link   = data.link || dashboardLink(r);
+
+      if(stNorm){
+        if(state.lastStatus == null){
+          const prev = getStoredStatus(r);
+          if(stNorm !== prev){
+            addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${stNorm}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
+            setStoredStatus(r, stNorm);
+          }
+          state.lastStatus = stNorm;
+        } else if(stNorm !== state.lastStatus){
+          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${stNorm}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
+          state.lastStatus = stNorm;
+          setStoredStatus(r, stNorm);
+        }
+      }
+
+      // --- FRITEXT (teamets svar) ---
+      const lastMsg = norm(data.lastMessage);
+      const lastBy  = norm(data.lastMessageBy).toLowerCase(); // förväntat: "team" / "intern" från flödet
+      if(lastMsg && (lastBy === 'team' || lastBy === 'intern')){
+        if(state.lastMsg == null){
+          const prevMsg = getStoredMsg(r);
+          if(lastMsg !== prevMsg){
+            addBubble(`Team: ${lastMsg}`, 'them');
+            setStoredMsg(r, lastMsg);
+          }
+          state.lastMsg = lastMsg;
+        } else if(lastMsg !== state.lastMsg){
+          addBubble(`Team: ${lastMsg}`, 'them');
+          state.lastMsg = lastMsg;
+          setStoredMsg(r, lastMsg);
+        }
+      }
+    };
+
+    state.timer = setInterval(tick, POLL_INTERVAL_MS);
+    tick(); // kör direkt första gången
+  }
+
+  function stopPoll(r){
+    const s = polls.get(r);
+    if(s && s.timer) clearInterval(s.timer);
+    polls.delete(r);
+  }
+
+  // Manuell uppdatering → starta om poll med lagrat läge
+  refreshBtn?.addEventListener('click', ()=>{
+    const r = norm(reg?.value);
+    if(r) startPoll(r, getStoredStatus(r), getStoredMsg(r));
+  });
+
+  // Starta om poll när fliken blir aktiv
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden){
+      const r = norm(reg?.value);
+      if(r) startPoll(r, getStoredStatus(r), getStoredMsg(r));
+    }
+  });
 </script>
 </body>
 </html>
