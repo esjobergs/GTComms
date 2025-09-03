@@ -123,7 +123,7 @@
           <button id="send" class="button" type="submit">Skicka</button>
         </div>
         <div class="radios" id="skickGroup">
-          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." checked> <span>inspektion genomförd utan anmärkning.</span></label>
+          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning."> <span>Inspektion genomförd utan anmärkning.</span></label>
           <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas."> <span>Inspektion behöver granskas.</span></label>
         </div>
         <div class="hint">Tips: skriv in regnr och tryck Skicka – uppdateringar visas nedan.</div>
@@ -196,7 +196,7 @@
 
       inFlight=true; send.disabled=true;
       addBubble(`Du: ${r} – <i>${skick}</i>`,'me');
-      addMeta('Skickat till Teams…');
+      addMeta('Skickat till Tesla…');
 
       try{
         const res = await fetch(SUBMIT_ENDPOINT,{
