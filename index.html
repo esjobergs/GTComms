@@ -2,158 +2,110 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <meta name="theme-color" content="#ffffff"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Inspektionschatt</title>
   <style>
-    /* Ljus / ljusgrå, mobil-först */
+    /* Ljus / ljusgrå palett */
     :root{
-      --bg:#fafafa;
+      --bg:#f6f7f9;
       --card:#ffffff;
-      --border:#e5e7eb;
+      --card-border:#e5e7eb;
       --muted:#6b7280;
       --text:#0f172a;
-      --subtle:#f5f6f8;
+      --subtle:#f1f5f9;
       --accent:#2563eb;
       --accent-press:#1d4ed8;
-      --bubble-me:#e8f1ff;
-      --bubble-them:#f3f4f6;
+      --bubble-me:#e8f1ff;      /* ljus blå bubbel */
+      --bubble-them:#f3f4f6;    /* ljus grå bubbel */
       --ring:#93c5fd;
       --shadow:0 8px 24px rgba(15,23,42,.06);
-      --radius:16px;
-      --space:clamp(12px, 2.5vw, 20px);
-      --safe-t: env(safe-area-inset-top, 0px);
     }
     *{box-sizing:border-box}
-    html, body { height:100%; }
     body{
       margin:0;
       background:var(--bg);
       color:var(--text);
       font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      min-height:100dvh;
-      display:flex;
+      display:flex; min-height:100vh;
     }
-
-    .app{ min-height:100dvh; width:100%; max-width:820px; margin:0 auto; display:flex; flex-direction:column; }
-
-    /* Sticky header */
-    .topbar{
-      position:sticky; top:0; z-index:10;
+    .wrap{ max-width:780px; margin:0 auto; padding:28px; width:100%; display:flex; flex-direction:column; gap:18px; }
+    .card{
       background:var(--card);
-      padding:calc(var(--space) - 6px) var(--space);
-      padding-top:calc(var(--space) + var(--safe-t));
-      border-bottom:1px solid var(--border);
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      border:1px solid var(--card-border);
+      border-radius:16px;
+      padding:16px;
+      box-shadow:var(--shadow);
     }
-    .title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
-    .toolbar{ display:flex; gap:8px; }
-    .small-btn{
-      height:36px; padding:0 12px; border-radius:10px; border:1px solid var(--border);
-      background:#fff; cursor:pointer;
+    h1{
+      font-size:20px; margin:0 0 10px;
+      display:flex; align-items:center; justify-content:space-between;
     }
-    .small-btn:hover{ background:#f8fafc; }
-
-    /* Inmatningskortet (TOPPEN) */
-    .form-card{
-      margin:var(--space); background:var(--card);
-      border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow);
-      padding:14px;
-    }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
     .input,.button{
-      height:46px; border-radius:12px; padding:0 12px; border:1px solid var(--border);
-      background:#fff; color:var(--text); font-size:16px;
+      height:44px; border-radius:12px; padding:0 12px; border:1px solid var(--card-border);
+      background:#fff; color:var(--text);
     }
-    .input{ flex:1 1 260px; min-width:200px; }
+    .input{ flex:1 1 260px; min-width:220px; }
     .input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
     .button{
       background:var(--accent); border:none; color:#fff; cursor:pointer; font-weight:600; padding:0 16px;
       box-shadow:0 2px 0 rgba(0,0,0,.03);
     }
-    .button:active{ background:var(--accent-press); }
+    .button:hover{ background:var(--accent-press); }
     .button:disabled{ opacity:.6; cursor:not-allowed; }
-    .radios{ display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; }
-    .radio{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:12px; background:#fff; }
-    input[type="radio"]{ width:18px; height:18px; accent-color:var(--accent); }
-    .hint{ font-size:12px; color:var(--muted); margin-top:6px; }
-
-    /* Chatkort */
-    .chat-wrap{ margin:0 var(--space) var(--space); }
-    .card{
-      background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow);
-    }
-    .chat{
-      display:flex; flex-direction:column; gap:10px;
-      padding:14px; background:var(--subtle);
-      border-radius:var(--radius); border:1px solid var(--border);
-      min-height:50dvh; max-height:unset; overflow:auto;
-    }
-    .bubble{ max-width:86%; padding:10px 12px; border-radius:14px; border:1px solid var(--border); }
+    .radios{ display:flex; gap:18px; flex-wrap:wrap; }
+    label{ display:flex; align-items:center; gap:8px; color:var(--muted); }
+    .chat{ display:flex; flex-direction:column; gap:10px; max-height:64vh; overflow:auto; padding-right:4px; background:var(--subtle); border-radius:14px; border:1px solid var(--card-border); padding:14px;}
+    .bubble{ max-width:80%; padding:10px 12px; border-radius:14px; border:1px solid var(--card-border);}
     .me{ align-self:flex-end; background:var(--bubble-me); }
     .them{ align-self:flex-start; background:var(--bubble-them); }
     .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
     a{ color:var(--accent); text-decoration:none; }
     a:hover{ text-decoration:underline; }
-
-    @media (max-width:520px){
-      .bubble{ max-width:92%; }
-      .row{ flex-direction:column; align-items:stretch; }
-      .button, .input{ width:100%; min-width:0; }
-      .radios{ flex-direction:column; gap:8px; }
-      .radio{ width:100%; }
-      .chat{ min-height:60dvh; }
+    .toolbar{ display:flex; gap:8px; }
+    .small-btn{
+      height:34px; padding:0 12px; border-radius:10px; border:1px solid var(--card-border); background:#fff; cursor:pointer;
     }
+    .small-btn:hover{ background:#f8fafc; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <!-- Sticky header -->
-    <div class="topbar">
-      <div class="title">Inspektionschatt</div>
-      <div class="toolbar">
-        <button id="refresh" class="small-btn" title="Uppdatera status manuellt">Uppdatera</button>
+  <div class="wrap">
+    <div class="card">
+      <h1>
+        Inspektionschatt
+        <span class="toolbar">
+          <button id="refresh" class="small-btn" title="Uppdatera status manuellt">Uppdatera</button>
+        </span>
+      </h1>
+      <div class="row" style="margin-bottom:10px">
+        <input id="reg" class="input" placeholder="Registreringsnummer (t.ex. ABC123)" autocomplete="off" />
+        <button id="send" class="button">Skicka</button>
+      </div>
+      <div class="radios" id="skickGroup">
+        <label><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." checked> inspektion genomförd utan anmärkning.</label>
+        <label><input type="radio" name="skick" value="Inspektion behöver granskas."> Inspektion behöver granskas.</label>
       </div>
     </div>
 
-    <!-- Inmatning överst -->
-    <section class="form-card">
-      <form id="form" novalidate>
-        <div class="row">
-          <input id="reg" class="input" placeholder="Registreringsnummer (t.ex. ABC123)" autocomplete="off" autocapitalize="characters" inputmode="latin-prose" />
-          <button id="send" class="button" type="submit">Skicka</button>
-        </div>
-        <div class="radios" id="skickGroup">
-          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." checked> <span>inspektion genomförd utan anmärkning.</span></label>
-          <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas."> <span>Inspektion behöver granskas.</span></label>
-        </div>
-        <div class="hint">Tips: skriv in regnr och tryck Skicka – uppdateringar visas nedan.</div>
-      </form>
-    </section>
-
-    <!-- Chatten -->
-    <section class="chat-wrap">
-      <div id="chat" class="chat card"></div>
-    </section>
+    <div class="card">
+      <div class="chat" id="chat"></div>
+    </div>
   </div>
 
   <script>
-    /* BYT dessa två värden till dina */
     const ENDPOINT = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c"; // samma endpoint för submit + get_status
-    const TOKEN = "TOKEN_ABC123";
+    const TOKEN = "TOKEN_ABC123";                // byt till din
 
     const chat = document.getElementById('chat');
     const reg = document.getElementById('reg');
-    const form = document.getElementById('form');
     const send = document.getElementById('send');
     const refreshBtn = document.getElementById('refresh');
 
     const POLL_INTERVAL_MS = 5000;
     const MAX_POLL_MS = 30 * 60 * 1000; // 30 min
     const polls = new Map(); // reg -> { timer, lastStatus, startedAt }
-    let inFlight = false;
 
-    /* UI helpers */
     function addBubble(html, who='them'){
       const b=document.createElement('div');
       b.className='bubble '+(who==='me'?'me':'them');
@@ -181,12 +133,8 @@
       return `https://giremobility.com/customer/dashboard?page=1&pageSize=50&search=${encodeURIComponent(r)}`;
     }
 
-    /* Uppercase helper (visuellt) */
-    reg.addEventListener('input', ()=>{ reg.value = reg.value.toUpperCase(); });
-
-    /* SUBMIT (form-submit funkar bättre på mobil än enbart click) */
-    form.addEventListener('submit', async (e)=>{
-      e.preventDefault();
+    let inFlight=false;
+    async function submitCase(){
       if(inFlight) return;
       const r=(reg.value||"").trim();
       if(!r){ reg.focus(); return; }
@@ -197,24 +145,20 @@
       addMeta('Skickat till Teams…');
 
       try{
-        const res = await fetch(ENDPOINT,{
+        await fetch(ENDPOINT,{
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ operation:'submit', token:TOKEN, registreringsnummer:r, skick })
         });
-        // valfri minimal kontroll
-        if(!res.ok){ addBubble('Servern svarade inte som väntat.','them'); }
-      }catch(err){
-        addBubble('Kunde inte nå servern. Kontrollera nätet och försök igen.','them');
-        console.error(err);
+      }catch(e){
+        addBubble('Kunde inte nå servern. Försök igen.','them');
       }finally{
         setTimeout(()=>{ inFlight=false; send.disabled=false; },600);
       }
 
       startPoll(r);
-    });
+    }
 
-    /* Polling */
     function startPoll(r){
       stopPoll(r);
       const state={ lastStatus:null, startedAt:Date.now() };
@@ -239,9 +183,7 @@
             state.lastStatus=status;
             if(status==='Klar') stopPoll(r);
           }
-        }catch(err){
-          console.error(err); /* prova igen nästa tick */
-        }
+        }catch(e){ /* ignorera och prova igen */ }
       };
 
       state.timer=setInterval(tick, POLL_INTERVAL_MS);
@@ -254,15 +196,16 @@
       polls.delete(r);
     }
 
-    /* Verktygsknapp i headern */
-    refreshBtn.addEventListener('click', ()=>{
-      const r=(reg.value||'').trim();
-      if(r) startPoll(r);
-    });
+    // UI hooks
+    send.addEventListener('click', submitCase);
+    reg.addEventListener('keydown', (e)=>{ if(e.key==='Enter') submitCase(); });
+    refreshBtn.addEventListener('click', ()=>{ const r=(reg.value||'').trim(); if(r) startPoll(r); });
 
-    /* Återstart poll vid återkomst till fliken */
+    // Stoppa polling när fliken lämnas (sparar körningar)
     document.addEventListener('visibilitychange', ()=>{
-      if(!document.hidden){
+      if(document.hidden){
+        for(const [r,s] of polls){ if(s.timer) clearInterval(s.timer); }
+      }else{
         const r=(reg.value||'').trim(); if(r) startPoll(r);
       }
     });
