@@ -137,10 +137,10 @@
   </div>
 
  <script>
-  /* ENDPOINT = din Power Automate-URL (samma för submit + get_status) */
+  /* Din Power Automate-URL (samma för submit + get_status) */
   const ENDPOINT = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";
-  const TOKEN = "TOKEN_ABC123"; /* byt till din om du validerar token i flödet */
-  const DEBUG = false; // sätt true om du vill se loggar
+  const TOKEN = "TOKEN_ABC123"; /* byt om du validerar token i flödet */
+  const DEBUG = false; // sätt true för konsollogg
 
   const chat = document.getElementById('chat');
   const reg = document.getElementById('reg');
@@ -155,6 +155,7 @@
 
   const log = (...a)=>{ if(DEBUG) console.log('[chat]', ...a); };
 
+  /* ---- UI helpers ---- */
   function addBubble(html, who='them'){
     const b=document.createElement('div');
     b.className='bubble '+(who==='me'?'me':'them');
@@ -185,10 +186,15 @@
     return `${status || ''}#${modified || ''}`;
   }
 
-  // gör regnr versalt
+  /* ---- Behåll senaste token per reg i sessionStorage (så vi inte “glömmer”) ---- */
+  const keyFor = (r)=>`chat:last:${r}`;
+  const getStoredToken = (r)=> { try { return sessionStorage.getItem(keyFor(r)); } catch(_) { return null; } };
+  const setStoredToken = (r,t)=> { try { if(t) sessionStorage.setItem(keyFor(r), t); } catch(_){} };
+
+  // Versalisera regnr visuellt
   reg.addEventListener('input', ()=>{ reg.value = reg.value.toUpperCase(); });
 
-  // Submit via form (mobilvänligt)
+  /* ===== SUBMIT: visar initial status och startar polling med lastToken ===== */
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     await submitCase();
@@ -216,13 +222,18 @@
       log('submit response', data);
 
       if(data && data.initial){
-        const st = data.initial.status || '(ingen status ännu)';
+        const st = data.initial.status || '';
         const mod = data.initial.modified || '';
         const link = data.initial.link || dashboardLink(r);
-        addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
-        startPoll(r, makeToken(st, mod)); // dedupe med status+modified
+        if(st){ // lägg bara bubbla om status finns
+          addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+        }
+        const token = makeToken(st, mod);
+        setStoredToken(r, token);
+        startPoll(r, token); // dedupe med status+modified
       } else {
-        startPoll(r, null); // fallback
+        // fallback – börja polla med senast sparade token (om finns)
+        startPoll(r, getStoredToken(r));
       }
     }catch(err){
       addBubble('Kunde inte nå servern. Kontrollera nätet och försök igen.','them');
@@ -232,9 +243,10 @@
     }
   }
 
+  /* ===== POLLING: triggar bubblor bara när token ändrats och status finns ===== */
   function startPoll(r, lastToken=null){
     stopPoll(r);
-    const state={ lastToken, startedAt:Date.now() };
+    const state={ lastToken: lastToken || getStoredToken(r), startedAt:Date.now() };
     polls.set(r,state);
 
     const tick=async ()=>{
@@ -249,24 +261,30 @@
 
         const data=await res.json().catch(()=>({}));
         log('get_status data', data);
-        if(!data || data.found===false){ return; } // inget ärende än
+        if(!data || data.found===false){ return; } // ingen rad hittades
 
         const status=parseStatus(data.status) || '';
-        const modified=data.modified || ''; // kan vara tom om du inte lagt till det i flow
+        const modified=data.modified || '';
         const token=makeToken(status, modified);
         const link=data.link || dashboardLink(r);
 
+        // Lägg inte bubbla om status är tom
+        if(!status) return;
+
+        // Första visningen (om vi saknar token i state)
         if(!state.lastToken){
-          // första visningen efter kall start
-          addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status||'(ingen status ännu)'}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
-          state.lastToken=token || status || String(Date.now());
+          addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+          state.lastToken=token;
+          setStoredToken(r, token);
           if(status==='Klar') stopPoll(r);
           return;
         }
 
-        if(token && token!==state.lastToken){
-          addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status||'(ingen status ännu)'}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+        // Ny uppdatering?
+        if(token!==state.lastToken){
+          addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
           state.lastToken=token;
+          setStoredToken(r, token);
           if(status==='Klar') stopPoll(r);
         }
       }catch(err){
@@ -287,16 +305,17 @@
   // Manuell uppdatering
   refreshBtn.addEventListener('click', ()=>{
     const r=(reg.value||'').trim();
-    if(r) startPoll(r, null);
+    if(r) startPoll(r, getStoredToken(r));
   });
 
   // Återstart poll vid återkomst
   document.addEventListener('visibilitychange', ()=>{
     if(!document.hidden){
-      const r=(reg.value||'').trim(); if(r) startPoll(r, null);
+      const r=(reg.value||'').trim(); if(r) startPoll(r, getStoredToken(r));
     }
   });
 </script>
+
 
 
 </body>
