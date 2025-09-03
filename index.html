@@ -44,99 +44,128 @@
   </div>
 
   <script>
-    const ENDPOINT = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";
-    const TOKEN = "TOKEN_ABC123"; // byt till din
+  const ENDPOINT = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";   // samma som du använder för submit + get_status
+  const TOKEN = "TOKEN_ABC123";                  // byt till din
 
-    const chat = document.getElementById('chat');
-    const reg = document.getElementById('reg');
-    const send = document.getElementById('send');
+  const chat = document.getElementById('chat');
+  const reg = document.getElementById('reg');
+  const send = document.getElementById('send');
 
-    let lastStatus = null;
-    let pollTimer = null;
-    let pollStartedAt = 0;
-    const MAX_POLL_MS = 180000; // 3 min
+  const POLL_INTERVAL_MS = 5000;
+  const MAX_POLL_MS = 30 * 60 * 1000; // 30 min
+  const polls = new Map(); // reg -> { timer, lastStatus, startedAt }
 
-    function addBubble(html, who = 'them') {
-      const b = document.createElement('div');
-      b.className = 'bubble ' + (who === 'me' ? 'me':'them');
-      b.innerHTML = html;
-      chat.appendChild(b);
-      chat.scrollTop = chat.scrollHeight;
+  function addBubble(html, who = 'them') {
+    const b = document.createElement('div');
+    b.className = 'bubble ' + (who === 'me' ? 'me':'them');
+    b.innerHTML = html;
+    chat.appendChild(b);
+    chat.scrollTop = chat.scrollHeight;
+  }
+  function addMeta(text) {
+    const m = document.createElement('div');
+    m.className = 'meta';
+    m.textContent = text;
+    chat.appendChild(m);
+    chat.scrollTop = chat.scrollHeight;
+  }
+  function currentSkick() {
+    const r = document.querySelector('input[name="skick"]:checked');
+    return r ? r.value : "";
+  }
+  function parseStatus(raw) {
+    if (typeof raw === 'string') return raw;
+    if (raw && typeof raw === 'object' && 'Value' in raw) return raw.Value;
+    return '';
+  }
+  function dashboardLink(r) {
+    return `https://giremobility.com/customer/dashboard?page=1&pageSize=50&search=${encodeURIComponent(r)}`;
+  }
+
+  let inFlight = false;
+  async function submitCase() {
+    if (inFlight) return;
+    const r = (reg.value || "").trim();
+    if (!r) { reg.focus(); return; }
+    const skick = currentSkick();
+
+    inFlight = true; send.disabled = true;
+    addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
+    addMeta('Skickat till Teams…');
+
+    try {
+      await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operation: 'submit',
+          token: TOKEN,
+          registreringsnummer: r,
+          skick
+        })
+      });
+    } catch (e) {
+      addBubble('Kunde inte nå servern. Försök igen.', 'them');
+    } finally {
+      setTimeout(() => { inFlight = false; send.disabled = false; }, 600);
     }
-    function addMeta(text) {
-      const m = document.createElement('div');
-      m.className = 'meta';
-      m.textContent = text;
-      chat.appendChild(m);
-      chat.scrollTop = chat.scrollHeight;
-    }
-    function currentSkick() {
-      const r = document.querySelector('input[name="skick"]:checked');
-      return r ? r.value : "";
-    }
 
-    async function submitCase() {
-      const r = (reg.value || "").trim();
-      if (!r) { reg.focus(); return; }
-      const skick = currentSkick();
+    // starta/omstarta poll för detta regnr
+    startPoll(r);
+  }
 
-      addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
-      addMeta('Skickat till Teams…');
+  function startPoll(r) {
+    stopPoll(r);
+    const state = { lastStatus: null, startedAt: Date.now() };
+    polls.set(r, state);
 
-      try {
-        await fetch(ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operation: 'submit',
-            token: TOKEN,
-            registreringsnummer: r,
-            skick
-          })
-        });
-      } catch (e) {
-        addBubble('Kunde inte nå servern. Försök igen.', 'them'); return;
-      }
-
-      // starta polling
-      lastStatus = null;
-      pollStartedAt = Date.now();
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(() => pollStatus(r), 5000);
-      pollStatus(r);
-    }
-
-    async function pollStatus(r) {
-      if (Date.now() - pollStartedAt > MAX_POLL_MS) { clearInterval(pollTimer); pollTimer = null; return; }
+    const tick = async () => {
+      if (Date.now() - state.startedAt > MAX_POLL_MS) { stopPoll(r); return; }
       try {
         const res = await fetch(ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operation: 'get_status',
-            token: TOKEN,
-            registreringsnummer: r
-          })
+          body: JSON.stringify({ operation: 'get_status', token: TOKEN, registreringsnummer: r })
         });
-        const data = await res.json();
-        if (data && data.found) {
-          const link = data.link;
-          const raw = data.status;
-          const status = typeof raw === 'string' ? raw : (raw && raw.Value) ? raw.Value : '(ingen status ännu)';
-          if (status !== lastStatus) {
-            addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
-            lastStatus = status;
-            if (status === 'Klar') { clearInterval(pollTimer); pollTimer = null; }
-          }
-        }
-      } catch (e) { /* tyst fel, prova igen vid nästa poll */ }
-    }
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        if (!data || !data.found) return;
 
-    send.addEventListener('click', submitCase);
-    reg.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitCase(); });
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden && pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    });
-  </script>
+        const status = parseStatus(data.status) || '(ingen status ännu)';
+        const link = data.link || dashboardLink(r);
+
+        if (status !== state.lastStatus) {
+          addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+          state.lastStatus = status;
+          if (status === 'Klar') stopPoll(r);
+        }
+      } catch (e) {
+        // tyst fel – prova igen nästa tick
+      }
+    };
+
+    state.timer = setInterval(tick, POLL_INTERVAL_MS);
+    tick(); // första direkt
+  }
+
+  function stopPoll(r) {
+    const s = polls.get(r);
+    if (s && s.timer) clearInterval(s.timer);
+    polls.delete(r);
+  }
+
+  send.addEventListener('click', submitCase);
+  reg.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitCase(); });
+
+  // (valfritt) Manuell uppdateringsknapp:
+  const h1 = document.querySelector('h1');
+  const btn = document.createElement('button');
+  btn.textContent = 'Uppdatera';
+  btn.className = 'button';
+  btn.style.height = '32px';
+  btn.onclick = () => { const r = (reg.value||'').trim(); if (r) startPoll(r); };
+  h1.appendChild(btn);
+</script>
+
 </body>
 </html>
