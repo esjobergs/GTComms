@@ -75,6 +75,36 @@
     const chat = document.getElementById('chat');
     let pollTimer = null;
 
+    // Skicka alltid POST – först via Beacon (ingen preflight), sedan fetch (fallback)
+    async function sendToFlow(payload){
+      try {
+        const blob = new Blob([JSON.stringify(payload)], { type: 'text/plain;charset=UTF-8' });
+        const ok = navigator.sendBeacon(FLOW_URL, blob);
+        if (ok) return;
+      } catch (e) { /* fallthrough */ }
+      try {
+        await fetch(FLOW_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) });
+      } catch (e) { /* tyst */ }
+    }
+
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const reg = (document.getElementById('reg').value || '').trim();
+      const skick = (new FormData(f)).get('skick');
+      if(!reg || !skick) return;
+
+      const btn = f.querySelector('button');
+      btn.disabled = true;
+
+      await sendToFlow({ regnr: reg, skick });
+
+      chat.innerHTML = '';
+      addMsg(`Skickat: ${reg} – ${skick}`, 'me');
+      startPolling(reg);
+
+      btn.disabled = false;
+    });
+
     function addMsg(txt, who='sys', meta='') {
       const d = document.createElement('div');
       d.className = `msg ${who==='me'?'me':'sys'}`;
@@ -88,55 +118,6 @@
       }
       chat.scrollTop = chat.scrollHeight;
     }
-
-    // 1) Primär beacon: GET via <img> med query (noll CORS-problem)
-    function beaconGET(reg, skick){
-      const i = new Image(1,1);
-      const u = new URL(FLOW_URL);
-      u.searchParams.set('regnr', reg);
-      u.searchParams.set('skick', skick);
-      // cache-bust
-      u.searchParams.set('_t', Date.now().toString());
-      i.src = u.toString();
-      // inget onload behövs; GET:en går iväg ändå
-    }
-
-    // 2) Sekundär: POST via sendBeacon (text/plain)
-    function beaconPOST(reg, skick){
-      try {
-        const blob = new Blob([JSON.stringify({ regnr: reg, skick })], { type: 'text/plain;charset=UTF-8' });
-        navigator.sendBeacon(FLOW_URL, blob);
-      } catch(e) {}
-    }
-
-    // 3) Tertiär: POST via fetch (no-cors)
-    async function fetchPOST(reg, skick){
-      try {
-        await fetch(FLOW_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({ regnr: reg, skick }) });
-      } catch(e) {}
-    }
-
-    f.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const reg = (document.getElementById('reg').value || '').trim();
-      const skick = (new FormData(f)).get('skick');
-      if(!reg || !skick) return;
-
-      const btn = f.querySelector('button');
-      btn.disabled = true;
-
-      // Skicka via 3 vägar för robusthet
-      beaconGET(reg, skick);
-      beaconPOST(reg, skick);
-      fetchPOST(reg, skick);
-
-      // UI
-      chat.innerHTML = '';
-      addMsg(`Skickat: ${reg} – ${skick}`, 'me');
-      startPolling(reg);
-
-      btn.disabled = false;
-    });
 
     function startPolling(reg) {
       if(pollTimer) clearInterval(pollTimer);
