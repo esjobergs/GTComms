@@ -139,6 +139,12 @@
 
   let inFlight=false;
 
+   // Normalisera/trimma strängar säkert
+function norm(s){ return (s ?? '').toString().trim(); }
+// (om du använder status-dedupe någonstans)
+function normStatus(s){ return norm(s).replace(/\.+$/, ''); }
+
+
   // === SUBMIT (robust, felvisande) ===
   async function submitCase(){
     if(inFlight) return;
