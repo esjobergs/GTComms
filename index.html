@@ -267,23 +267,32 @@
         }
       }
 
-      // --- FRITEXT (teamets svar) ---
-      const lastMsg = norm(data.lastMessage);
-      const lastBy  = norm(data.lastMessageBy).toLowerCase(); // förväntat: "team" / "intern" från flödet
-      if(lastMsg && (lastBy === 'team' || lastBy === 'intern')){
-        if(state.lastMsg == null){
-          const prevMsg = getStoredMsg(r);
-          if(lastMsg !== prevMsg){
-            addBubble(`Team: ${lastMsg}`, 'them');
-            setStoredMsg(r, lastMsg);
-          }
-          state.lastMsg = lastMsg;
-        } else if(lastMsg !== state.lastMsg){
-          addBubble(`Team: ${lastMsg}`, 'them');
-          state.lastMsg = lastMsg;
-          setStoredMsg(r, lastMsg);
-        }
-      }
+// --- FRITEXT (teamets svar) ---
+const lastMsg = norm(data.lastMessage);
+const lastByRaw = norm(data.lastMessageBy);
+const lastAt    = norm(data.lastMessageAt); // valfritt, men bra att ha
+const lastBy    = lastByRaw.toLowerCase();
+
+// Behandla som TEAM om avsändaren inte är kund (eller saknas)
+const customerAliases = ['kund','customer','extern','user','client'];
+const isFromCustomer  = customerAliases.includes(lastBy);
+const treatAsTeam     = lastBy ? !isFromCustomer : true; // saknas -> anta team
+
+if (lastMsg && treatAsTeam) {
+  if (state.lastMsg == null) {
+    const prevMsg = getStoredMsg(r);
+    if (lastMsg !== prevMsg) {
+      addBubble(`Team: ${lastMsg}`, 'them');
+      setStoredMsg(r, lastMsg);
+    }
+    state.lastMsg = lastMsg;
+  } else if (lastMsg !== state.lastMsg) {
+    addBubble(`Team: ${lastMsg}`, 'them');
+    state.lastMsg = lastMsg;
+    setStoredMsg(r, lastMsg);
+  }
+}
+
     };
 
     state.timer = setInterval(tick, POLL_INTERVAL_MS);
