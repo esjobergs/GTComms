@@ -68,11 +68,11 @@
         </div>
 
         <div class="radios">
-          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." checked> <span>inspektion genomförd utan anmärkning.</span></label>
+          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." > <span>inspektion genomförd utan anmärkning.</span></label>
           <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas."> <span>Inspektion behöver granskas.</span></label>
         </div>
 
-        <textarea id="message" class="textarea" placeholder="Meddelande till Team (valfritt)"></textarea>
+        <textarea id="message" class="textarea" placeholder="Meddelande till Tesla (valfritt)"></textarea>
 
         <div class="hint">Tips: skriv in regnr och tryck Skicka – uppdateringar och svar visas nedan.</div>
       </form>
@@ -163,7 +163,7 @@
         if(st){
           const prev = getStoredStatus(r);
           if(st !== prev){
-            addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
+            addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
             setStoredStatus(r, st);
             if(st === 'Klar' && !isClosedPosted(r)){ addBubble(CLOSED_MSG); markClosedPosted(r); }
           }
@@ -207,13 +207,13 @@
             if(state.lastStatus == null){
               const prev = getStoredStatus(r);
               if(status !== prev){
-                addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
+                addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
                 setStoredStatus(r, status);
               }
               state.lastStatus = status;
               if(status === 'Klar' && !isClosedPosted(r)){ addBubble(CLOSED_MSG); markClosedPosted(r); stopPoll(r); }
             } else if(status !== state.lastStatus){
-              addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
+              addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
               state.lastStatus = status; setStoredStatus(r, status);
               if(status === 'Klar' && !isClosedPosted(r)){ addBubble(CLOSED_MSG); markClosedPosted(r); stopPoll(r); }
             }
