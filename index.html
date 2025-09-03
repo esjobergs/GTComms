@@ -276,18 +276,18 @@ const lastBy    = lastByRaw.toLowerCase();
 // Behandla som TEAM om avsändaren inte är kund (eller saknas)
 const customerAliases = ['kund','customer','extern','user','client'];
 const isFromCustomer  = customerAliases.includes(lastBy);
-const treatAsTeam     = lastBy ? !isFromCustomer : true; // saknas -> anta team
+const treatAsTeam     = lastBy ? !isFromCustomer : true; // saknas -> anta Tesla
 
 if (lastMsg && treatAsTeam) {
   if (state.lastMsg == null) {
     const prevMsg = getStoredMsg(r);
     if (lastMsg !== prevMsg) {
-      addBubble(`Team: ${lastMsg}`, 'them');
+      addBubble(`Tesla: ${lastMsg}`, 'them');
       setStoredMsg(r, lastMsg);
     }
     state.lastMsg = lastMsg;
   } else if (lastMsg !== state.lastMsg) {
-    addBubble(`Team: ${lastMsg}`, 'them');
+    addBubble(`Tesla: ${lastMsg}`, 'them');
     state.lastMsg = lastMsg;
     setStoredMsg(r, lastMsg);
   }
