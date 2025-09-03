@@ -139,7 +139,8 @@
  <script>
   /* ENDPOINT = din Power Automate-URL (samma för submit + get_status) */
   const ENDPOINT = "https://prod-97.westus.logic.azure.com:443/workflows/a248bd2c1a01408a960434d68b147fa2/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Gfa03ZUPEmaIwzRQT0ArcGKaocNrGLmQNnyD6NIEb8c";
-  const TOKEN = "TOKEN_ABC123"; /* byt om du validerar token i flödet */
+  const TOKEN = "TOKEN_ABC123"; /* byt till din om du validerar token i flödet */
+  const DEBUG = false; // sätt true om du vill se loggar
 
   const chat = document.getElementById('chat');
   const reg = document.getElementById('reg');
@@ -152,7 +153,8 @@
   const polls = new Map(); // reg -> { timer, lastToken, startedAt }
   let inFlight = false;
 
-  /* Helpers */
+  const log = (...a)=>{ if(DEBUG) console.log('[chat]', ...a); };
+
   function addBubble(html, who='them'){
     const b=document.createElement('div');
     b.className='bubble '+(who==='me'?'me':'them');
@@ -183,10 +185,10 @@
     return `${status || ''}#${modified || ''}`;
   }
 
-  /* Uppercase helper (visuellt) */
+  // gör regnr versalt
   reg.addEventListener('input', ()=>{ reg.value = reg.value.toUpperCase(); });
 
-  /* SUBMIT – visar initial status direkt och startar polling med lastToken */
+  // Submit via form (mobilvänligt)
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     await submitCase();
@@ -211,15 +213,16 @@
 
       let data=null;
       try { data = await res.json(); } catch(_){}
+      log('submit response', data);
 
       if(data && data.initial){
         const st = data.initial.status || '(ingen status ännu)';
-        const mod = data.initial.modified || '';   // <— NYTT: ta emot Modified
+        const mod = data.initial.modified || '';
         const link = data.initial.link || dashboardLink(r);
         addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
-        startPoll(r, makeToken(st, mod));         // <— NYTT: skicka med lastToken
+        startPoll(r, makeToken(st, mod)); // dedupe med status+modified
       } else {
-        startPoll(r, null);
+        startPoll(r, null); // fallback
       }
     }catch(err){
       addBubble('Kunde inte nå servern. Kontrollera nätet och försök igen.','them');
@@ -229,7 +232,6 @@
     }
   }
 
-  /* POLLING – deduplicerar på status+modified (fångar alla nya uppdateringar) */
   function startPoll(r, lastToken=null){
     stopPoll(r);
     const state={ lastToken, startedAt:Date.now() };
@@ -243,14 +245,24 @@
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ operation:'get_status', token:TOKEN, registreringsnummer:r })
         });
-        if(!res.ok) return;
+        if(!res.ok){ log('get_status HTTP not ok', res.status); return; }
+
         const data=await res.json().catch(()=>({}));
-        if(!data || !data.found) return;
+        log('get_status data', data);
+        if(!data || data.found===false){ return; } // inget ärende än
 
         const status=parseStatus(data.status) || '';
-        const modified=data.modified || '';             // <— NYTT: ta emot Modified
-        const token=makeToken(status, modified);        // <— NYTT
+        const modified=data.modified || ''; // kan vara tom om du inte lagt till det i flow
+        const token=makeToken(status, modified);
         const link=data.link || dashboardLink(r);
+
+        if(!state.lastToken){
+          // första visningen efter kall start
+          addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status||'(ingen status ännu)'}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+          state.lastToken=token || status || String(Date.now());
+          if(status==='Klar') stopPoll(r);
+          return;
+        }
 
         if(token && token!==state.lastToken){
           addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status||'(ingen status ännu)'}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
@@ -272,19 +284,20 @@
     polls.delete(r);
   }
 
-  /* Manuell uppdatering */
+  // Manuell uppdatering
   refreshBtn.addEventListener('click', ()=>{
     const r=(reg.value||'').trim();
     if(r) startPoll(r, null);
   });
 
-  /* Återstart poll vid återkomst till fliken */
+  // Återstart poll vid återkomst
   document.addEventListener('visibilitychange', ()=>{
     if(!document.hidden){
       const r=(reg.value||'').trim(); if(r) startPoll(r, null);
     }
   });
 </script>
+
 
 </body>
 </html>
