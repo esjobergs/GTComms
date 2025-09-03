@@ -269,7 +269,7 @@
           if(state.lastStatus == null){
             const stored = getStoredStatus(r);
             if(status !== stored){
-              addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+              addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
               setStoredStatus(r, status);
             }
             state.lastStatus = status;
@@ -283,7 +283,7 @@
 
           // Ny bubbla endast när status byts
           if(status !== state.lastStatus){
-            addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+            addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
             state.lastStatus = status;
             setStoredStatus(r, status);
             if(status === 'Klar' && !isClosedPosted(r)){
