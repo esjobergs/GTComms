@@ -184,10 +184,88 @@
     /* Uppercase helper (visuellt) */
     reg.addEventListener('input', ()=>{ reg.value = reg.value.toUpperCase(); });
 
-    /* ===== UPDATED: submitCase visar direkt status-svar och startar polling ===== */
+    /* SUBMIT (form-submit funkar bättre på mobil än enbart click) */
     form.addEventListener('submit', async (e)=>{
       e.preventDefault();
-      await submitCase();
+      if(inFlight) return;
+      const r=(reg.value||"").trim();
+      if(!r){ reg.focus(); return; }
+      const skick=currentSkick();
+
+      inFlight=true; send.disabled=true;
+      addBubble(`Du: ${r} – <i>${skick}</i>`,'me');
+      addMeta('Skickat till Teams…');
+
+      try{
+        const res = await fetch(ENDPOINT,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ operation:'submit', token:TOKEN, registreringsnummer:r, skick })
+        });
+        // valfri minimal kontroll
+        if(!res.ok){ addBubble('Servern svarade inte som väntat.','them'); }
+      }catch(err){
+        addBubble('Kunde inte nå servern. Kontrollera nätet och försök igen.','them');
+        console.error(err);
+      }finally{
+        setTimeout(()=>{ inFlight=false; send.disabled=false; },600);
+      }
+
+      startPoll(r);
     });
 
-    async
+    /* Polling */
+    function startPoll(r){
+      stopPoll(r);
+      const state={ lastStatus:null, startedAt:Date.now() };
+      polls.set(r,state);
+
+      const tick=async ()=>{
+        if(Date.now()-state.startedAt>MAX_POLL_MS){ stopPoll(r); return; }
+        try{
+          const res=await fetch(ENDPOINT,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ operation:'get_status', token:TOKEN, registreringsnummer:r })
+          });
+          if(!res.ok) return;
+          const data=await res.json().catch(()=>({}));
+          if(!data || !data.found) return;
+
+          const status=parseStatus(data.status) || '(ingen status ännu)';
+          const link=data.link || dashboardLink(r);
+          if(status!==state.lastStatus){
+            addBubble(`Teams: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+            state.lastStatus=status;
+            if(status==='Klar') stopPoll(r);
+          }
+        }catch(err){
+          console.error(err); /* prova igen nästa tick */
+        }
+      };
+
+      state.timer=setInterval(tick, POLL_INTERVAL_MS);
+      tick(); // första direkt
+    }
+
+    function stopPoll(r){
+      const s=polls.get(r);
+      if(s && s.timer) clearInterval(s.timer);
+      polls.delete(r);
+    }
+
+    /* Verktygsknapp i headern */
+    refreshBtn.addEventListener('click', ()=>{
+      const r=(reg.value||'').trim();
+      if(r) startPoll(r);
+    });
+
+    /* Återstart poll vid återkomst till fliken */
+    document.addEventListener('visibilitychange', ()=>{
+      if(!document.hidden){
+        const r=(reg.value||'').trim(); if(r) startPoll(r);
+      }
+    });
+  </script>
+</body>
+</html>
