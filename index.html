@@ -141,7 +141,7 @@
         <!-- Rad 2: Radio-val (krävs) -->
         <div class="radios" id="skickGroup">
           <label class="radio">
-            <input type="radio" name="skick" value="Inspektion genomförd utan anmärkning" required checked>
+            <input type="radio" name="skick" value="Inspektion genomförd utan anmärkning" required>
             <span>Inspektion genomförd utan anmärkning</span>
           </label>
           <label class="radio">
@@ -352,7 +352,7 @@
       const prevStored = getStoredStatus(r);
       if(st){
         setStoredStatus(r, st);
-        if (st !== prevStored) addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+        if (st !== prevStored) addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
         if (st === 'Klar') { markClosed(r); }
       }
 
@@ -384,7 +384,7 @@
         const status = norm(data.status);
         const link   = data.link || dashboardLink(r);
         if(status && status !== state.lastStatus){
-          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
           state.lastStatus = status; setStoredStatus(r, status);
           if(status === 'Klar'){ markClosed(r); stopPoll(r); }
         }
