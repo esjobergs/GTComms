@@ -60,16 +60,30 @@
       .chat{ min-height:60dvh; }
     }
 
-    /* Mindre regnr-fält på mobil – högre specifitet + !important */
-    @media (max-width:520px){
-      .form-card .row #reg.input{
-        height: 36px !important;        /* lägre än standard 46px */
-        padding: 6px 10px !important;   /* tajtare vertikalt */
-        border-radius: 10px !important;
-        font-size: 16px !important;
-        line-height: 26px;              /* stabil i webkit */
-        -webkit-appearance: none;
-        appearance: none;
+  /* === Exakt samma höjd på reg-fält och Skicka-knapp (mobil) === */
+@media (max-width:520px){
+  /* gemensam höjd */
+  .form-card .row #reg.input,
+  .form-card .row #send.button{
+    height: 40px !important;         /* samma höjd */
+    border-radius: 10px !important;
+  }
+
+  /* inputen: kompakt padding + stäng av iOS-standard */
+  .form-card .row #reg.input{
+    padding: 6px 10px !important;     /* vertikalt + horisontellt */
+    font-size: 16px !important;       /* undvik iOS-zoom */
+    line-height: 1.2 !important;      /* stabil textlayout */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* knappen: centrera texten vertikalt */
+  .form-card .row #send.button{
+    padding: 0 14px !important;       /* ingen vertikal padding, bara sida */
+    line-height: 40px !important;     /* lika med höjd → centrerar text */
+  }
+}
       }
     }
   </style>
