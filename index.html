@@ -313,7 +313,7 @@
         if(lastMsg && treatAsTeam){
           const previously = state.lastMsg ?? getStoredMsg(r);
           if(lastMsg !== previously){
-            addBubble(`Team: ${lastMsg}`, 'them');
+            addBubble(`Tesla: ${lastMsg}`, 'them');
             state.lastMsg = lastMsg;
             setStoredMsg(r, lastMsg);
           }
