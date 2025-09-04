@@ -252,7 +252,7 @@
         // Fritext (teamets svar)
         const lastMsg = norm(data.lastMessage);
         const lastBy  = norm(data.lastMessageBy).toLowerCase();
-        const treatAsTeam = lastBy ? (lastBy !== 'kund') : true; // tom avsändare = räkna som team
+        const treatAsTeam = lastBy ? (lastBy !== 'Gire') : true; // tom avsändare = räkna som team
 
         if(lastMsg && treatAsTeam){
           const previously = state.lastMsg ?? getStoredMsg(r);
