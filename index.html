@@ -113,6 +113,9 @@
   function setStored(key,val){ try { sessionStorage.setItem(key, val); } catch {} }
   function getStoredMsg(r){ return getStored(`msg:${r}`); }
   function setStoredMsg(r,v){ setStored(`msg:${r}`, v); }
+  function getStoredStatus(r){ return getStored(`status:${r}`); }
+  function setStoredStatus(r,v){ setStored(`status:${r}`, v || ''); }
+
 
   /* ====== DOM ====== */
   const chat = document.getElementById('chat');
