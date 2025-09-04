@@ -202,13 +202,18 @@
 
       const data = out.json || {};
       // läs ev. initial status från svaret (men låt pollingen vara sanningen)
-      const initial = data.initial || {};
-      const st   = norm(initial.status ?? data.status ?? '');
-      const link = initial.link || data.link || dashboardLink(r);
+const initial = data.initial || {};
+const st   = norm(initial.status ?? data.status ?? '');
+const link = initial.link || data.link || dashboardLink(r);
 
-      if(st){
-        addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
-      }
+// Dedup: spara initial status så första poll-tick inte ekoar samma status
+const prevStored = getStoredStatus(r);
+if (st) {
+  setStoredStatus(r, st);
+  if (st !== prevStored) {
+    addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+  }
+}
 
       // rensa fritextrutan efter lyckad submit
       if(msgEl) msgEl.value = '';
@@ -226,7 +231,7 @@
 
   function startPoll(r){
     stopPoll(r);
-    const state = { lastStatus: null, lastMsg: null, startedAt: Date.now() };
+    const state = { lastStatus: null, lastMsg: null, startedAt: Date.now() };state.lastStatus = getStoredStatus(r) || null;
     polls.set(r, state);
 
     const tick = async ()=>{
@@ -244,12 +249,14 @@
         if(!data || !data.found) return;
 
         // Status
-        const status = norm(data.status);
-        const link   = data.link || dashboardLink(r);
-        if(status && status !== state.lastStatus){
-          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
-          state.lastStatus = status;
-          if(status === 'Klar'){ stopPoll(r); }
+       const status = norm(data.status);
+const link   = data.link || dashboardLink(r);
+if (status && status !== state.lastStatus) {
+  addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+  state.lastStatus = status;
+  setStoredStatus(r, status);   // <-- den här raden är ny
+  if (status === 'Klar') { stopPoll(r); }
+}
         }
 
         // Fritext (teamets svar)
