@@ -52,6 +52,13 @@
     .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
     a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
 
+    /* Highlighta radiogruppen när den är ogiltig */
+    .radios.invalid{
+    outline: 2px solid var(--accent);
+    box-shadow: 0 0 0 3px var(--ring);
+    border-radius: 12px;
+}
+    
     @media (max-width:520px){
       .bubble{ max-width:92%; }
       .row{ flex-direction:column; align-items:stretch; }
@@ -160,8 +167,8 @@
         </div>
 
         <div class="radios" id="skickGroup">
-          <label class="radio"><input type="radio" name="skick" value="Inspektion genomförd utan anmärkning" > <span>Inspektion genomförd utan anmärkning</span></label>
-          <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas"> <span>Inspektion behöver granskas</span></label>
+          <label class="radio"><input type="radio" name="skick" value="Inspektion genomförd utan anmärkning" required> <span>Inspektion genomförd utan anmärkning</span></label>
+          <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas" required> <span>Inspektion behöver granskas</span></label>
         </div>
 
         <textarea id="message" class="textarea" placeholder="Meddelande till Tesla (valfritt)"></textarea>
@@ -300,7 +307,21 @@
       addBubble('Ärendet är avslutat. Nya meddelanden tas inte emot.', 'them');
       return;
     }
+// Tvinga val av "skick"
+const groupEl = document.getElementById('skickGroup');
+const radios  = document.querySelectorAll('input[name="skick"]');
+const hasPick = Array.from(radios).some(r => r.checked);
 
+if (!hasPick) {
+  if (groupEl) groupEl.classList.add('invalid');
+  // Visa även inbyggd validering (stöd för skärmläsare/UA)
+  form.reportValidity?.();
+  addBubble('Välj ett alternativ under <b>Skick</b> innan du skickar.', 'them');
+  radios[0]?.focus();
+  return;
+} else {
+  groupEl?.classList.remove('invalid');
+}
     if(inFlight) return;
     const skick        = currentSkick();
     const userMessage  = norm(msgEl?.value);
