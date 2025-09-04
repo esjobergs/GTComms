@@ -409,7 +409,7 @@
         // Teamets fritext (dedupe)
         const lastMsg = norm(data.lastMessage);
         const lastBy  = norm(data.lastMessageBy).toLowerCase();
-        const treatAsTeam = lastBy ? (lastBy !== 'kund') : true;
+        const treatAsTeam = lastBy ? (lastBy !== 'Gire') : true;
         if(lastMsg && treatAsTeam){
           const previously = state.lastMsg ?? getStoredMsg(r);
           if(lastMsg !== previously){
