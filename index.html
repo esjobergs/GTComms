@@ -10,7 +10,7 @@
       --bg:#fafafa; --card:#ffffff; --border:#e5e7eb; --muted:#6b7280; --text:#0f172a;
       --subtle:#f5f6f8; --accent:#2563eb; --accent-press:#1d4ed8;
       --bubble-me:#e8f1ff; --bubble-them:#f3f4f6; --ring:#93c5fd; --shadow:0 8px 24px rgba(15,23,42,.06);
-      --radius:16px; --space:clamp(12px, 2.5vw, 20px); --safe-t: env(safe-area-inset-top, 0px);
+      --radius:16px; --space:clamp(12px, 2.5vw, 20px); --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
     }
     *{box-sizing:border-box}
     html, body { height:100%; }
@@ -24,15 +24,29 @@
     .small-btn:hover{ background:#f8fafc; }
 
     .form-card{ margin:var(--space); background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    /* Sticky composer i botten */
+    .form-card.sticky{
+      position: sticky; bottom: 0; z-index: 9;
+      margin-bottom: 0;           /* så den verkligen ligger mot botten */
+      padding-bottom: calc(14px + var(--safe-b));
+      border-top: 1px solid var(--border);
+      border-bottom: 0;
+      box-shadow: 0 -8px 24px rgba(15,23,42,.06);
+      background: var(--card);
+    }
 
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .input,.button{ height:46px; border-radius:12px; padding:0 12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:16px; }
+    .input{ flex:1 1 260px; min-width:200px; }
+    .input:focus, .textarea:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
+    .button{ background:var(--accent); border:none; color:#fff; cursor:pointer; font-weight:600; padding:0 16px; box-shadow:0 2px 0 rgba(0,0,0,.03); }
+    .button:active{ background:var(--accent-press); }
+    .button:disabled{ opacity:.6; cursor:not-allowed; }
 
     .radios{ display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; }
     .radio{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:12px; background:#fff; }
     input[type="radio"]{ width:18px; height:18px; accent-color:var(--accent); }
 
-
-    
     .textarea{
       width:100%; min-height:64px; resize:vertical; border-radius:12px; padding:10px 12px;
       border:1px solid var(--border); background:#fff; color:#0f172a; font-size:16px; margin-top:10px;
@@ -40,29 +54,16 @@
 
     .hint{ font-size:12px; color:var(--muted); margin-top:6px; }
 
-    .input,.button{ height:46px; border-radius:12px; padding:0 12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:16px; }
-    .input{ flex:1 1 260px; min-width:200px; }
-    .input:focus, .textarea:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
-    .button{ background:var(--accent); border:none; color:#fff; cursor:pointer; font-weight:600; padding:0 16px; box-shadow:0 2px 0 rgba(0,0,0,.03); }
-    .button:active{ background:var(--accent-press); }
-    .button:disabled{ opacity:.6; cursor:not-allowed; }
-    
     .chat-wrap{ margin:0 var(--space) var(--space); }
     .card{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
     .chat{ display:flex; flex-direction:column; gap:10px; padding:14px; background:var(--subtle); border-radius:var(--radius); border:1px solid var(--border); min-height:50dvh; overflow:auto; }
+
     .bubble{ max-width:86%; padding:10px 12px; border-radius:14px; border:1px solid var(--border); }
     .me{ align-self:flex-end; background:var(--bubble-me); }
     .them{ align-self:flex-start; background:var(--bubble-them); }
     .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
     a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
 
-    /* Highlighta radiogruppen när den är ogiltig */
-    .radios.invalid{
-    outline: 2px solid var(--accent);
-    box-shadow: 0 0 0 3px var(--ring);
-    border-radius: 12px;
-}
-    
     @media (max-width:520px){
       .bubble{ max-width:92%; }
       .row{ flex-direction:column; align-items:stretch; }
@@ -71,89 +72,43 @@
       .chat{ min-height:60dvh; }
     }
 
-
-  /* inputen: kompakt padding + stäng av iOS-standard */
-  .form-card .row #reg.input{
-    padding: 6px 10px !important;     /* vertikalt + horisontellt */
-    font-size: 16px !important;       /* undvik iOS-zoom */
-    line-height: 1.2 !important;      /* stabil textlayout */
-    -webkit-appearance: none;
-    appearance: none;
-  }
-
-  /* knappen: centrera texten vertikalt */
-  .form-card .row #send.button{
-    padding: 0 14px !important;       /* ingen vertikal padding, bara sida */
-    line-height: 40px !important;     /* lika med höjd → centrerar text */
-  }
-}
+    /* === Samma höjd på REG och Skicka (mobil), hög specifitet === */
+    @media (max-width:520px){
+      .form-card .row #reg.input,
+      .form-card .row #send.button{
+        --h: 42px;
+        block-size: var(--h) !important;
+        height: var(--h) !important;
+        min-height: var(--h) !important;
+        max-height: var(--h) !important;
+        box-sizing: border-box !important;
+        border-radius: 10px !important;
+        padding-block: 0 !important;
+      }
+      .form-card .row #reg.input{
+        padding-inline: 10px !important;
+        font-size: 16px !important;
+        line-height: 1.2 !important;
+        -webkit-appearance: none;
+        appearance: none;
+        border: 1px solid var(--border) !important;
+      }
+      .form-card .row #send.button{
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding-inline: 14px !important;
+        line-height: 1 !important;
+        border: 1px solid var(--border) !important;
       }
     }
-    /* === Samma höjd på reg-fält och Skicka-knapp (mobil) === */
-@media (max-width:520px){
-  /* gemensam höjdvariabel */
-  .form-card .row #reg.input,
-  .form-card .row #send.button{
-    --h: 44px;                   /* justera till 40/42/44 efter smak */
-    height: var(--h) !important;
-    min-height: var(--h) !important;
-    max-height: var(--h) !important;
-    border-radius: 10px !important;
-  }
 
-  /* inputen: kompakt padding + stäng av UA-stil */
-  .form-card .row #reg.input{
-    padding: 8px 10px !important;    /* mindre vertikal padding */
-    font-size: 16px !important;      /* undvik iOS-zoom */
-    line-height: 1.2 !important;
-    -webkit-appearance: none;
-    appearance: none;
-  }
-
-  /* knappen: flex-centrerad text + samma border som input för exakt yttre höjd */
-  .form-card .row #send.button{
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 0 14px !important;      /* ingen vertikal padding */
-    line-height: 1 !important;       /* vi centrerar med flex */
-    border: 1px solid var(--border) !important;  /* matcha inputens 1px border */
-  }
-}/* === Samma höjd på REG och Skicka (mobil) === */
-@media (max-width:520px){
-  /* gemensam höjd */
-  .form-card .row #reg.input,
-  .form-card .row #send.button{
-    --h: 42px;                           /* justera till 40/42/44 vid behov */
-    block-size: var(--h) !important;     /* logisk höjd (bättre i WebKit) */
-    height: var(--h) !important;
-    min-height: var(--h) !important;
-    max-height: var(--h) !important;
-    box-sizing: border-box !important;
-    border-radius: 10px !important;
-    padding-block: 0 !important;         /* noll vertikal padding → exakt yttre höjd */
-  }
-
-  /* input: bara horisontell padding, stäng av UA-stil */
-  .form-card .row #reg.input{
-    padding-inline: 10px !important;
-    font-size: 16px !important;          /* undvik iOS-zoom */
-    line-height: 1.2 !important;
-    -webkit-appearance: none;
-    appearance: none;
-    border: 1px solid var(--border) !important;
-  }
-
-  /* knapp: flex-centrera text, ge samma border-tjocklek som input */
-  .form-card .row #send.button{
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding-inline: 14px !important;     /* ingen vertikal padding */
-    line-height: 1 !important;
-    border: 1px solid var(--border) !important; /* matcha inputens 1px border */
-  }
-}
+    /* Highlighta radiogruppen när inget val finns (JS sätter .invalid) */
+    .radios.invalid{
+      outline: 2px solid var(--accent);
+      box-shadow: 0 0 0 3px var(--ring);
+      border-radius: 12px;
+    }
   </style>
 </head>
 <body>
@@ -163,7 +118,13 @@
       <div class="toolbar"><button id="refresh" class="small-btn" title="Uppdatera status manuellt">Uppdatera</button></div>
     </div>
 
-    <section class="form-card">
+    <!-- 1) CHATTEN ÖVERST -->
+    <section class="chat-wrap">
+      <div id="chat" class="chat card"></div>
+    </section>
+
+    <!-- 2) INMATNING UNDER (sticky) -->
+    <section class="form-card sticky">
       <form id="form" novalidate>
         <div class="row">
           <input id="reg" class="input" placeholder="Registreringsnummer (t.ex. ABC123)" autocomplete="off" autocapitalize="characters" inputmode="latin-prose" />
@@ -171,17 +132,21 @@
         </div>
 
         <div class="radios" id="skickGroup">
-          <label class="radio"><input type="radio" name="skick" value="Inspektion genomförd utan anmärkning" required> <span>Inspektion genomförd utan anmärkning</span></label>
-          <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas" required> <span>Inspektion behöver granskas</span></label>
+          <label class="radio">
+            <input type="radio" name="skick" value="Inspektion genomförd utan anmärkning" required>
+            <span>Inspektion genomförd utan anmärkning</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="skick" value="Inspektion behöver granskas" required>
+            <span>Inspektion behöver granskas</span>
+          </label>
         </div>
 
         <textarea id="message" class="textarea" placeholder="Meddelande till Tesla (valfritt)"></textarea>
 
-        <div class="hint">Tips: skriv in regnr och tryck Skicka – uppdateringar och svar visas nedan.</div>
+        <div class="hint">Tips: skriv in regnr och tryck Skicka – uppdateringar och svar visas ovan.</div>
       </form>
     </section>
-
-    <section class="chat-wrap"><div id="chat" class="chat card"></div></section>
   </div>
 
 <script>
@@ -189,7 +154,7 @@
   const SUBMIT_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5a0a1fb25b70498a932edd00369aee0d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=52mAKCA0oJWXdb9LIeuJqGu_TWtQn51-oGu8GGrs800";
   const STATUS_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4527da04eaa242ab8997f6b86b6c34d1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cxKEfv2pIz_os5Cjt16jWp2LqX4bgWBzftS40WYdFFg";
   const TOKEN = "TOKEN_ABC123";
-  const DEBUG = true; // sätt till false när allt är stabilt
+  const DEBUG = true;
 
   /* ====== DEBUG & helpers ====== */
   function log(...a){ if (DEBUG) console.log('[chat]', ...a); }
@@ -203,7 +168,7 @@
     return { ok: res.ok, status: res.status, text, json };
   }
 
-  // ====== localStorage helpers (består över sidladdning & flikar) ======
+  // ====== localStorage helpers ======
   function getStored(key){ try { return localStorage.getItem(key) || ''; } catch { return ''; } }
   function setStored(key,val){
     try {
@@ -218,11 +183,11 @@
   function hasShownIntro(r){ return getStored(`intro:${r}`) === '1'; }
   function markIntroShown(r){ setStored(`intro:${r}`, '1'); }
 
-  // -seed (första submit utan fritext – redan i localStorage)
+  // Hej-seed
   function wasSeeded(r){ try { return localStorage.getItem(`seeded:${r}`) === '1'; } catch { return false; } }
   function markSeeded(r){ try { localStorage.setItem(`seeded:${r}`, '1'); } catch {} }
 
-  // Close/Open helpers (per regnr) – nu i localStorage
+  // Close/Open helpers (per regnr)
   function isClosed(r){ try { return localStorage.getItem(`closed:${r}`) === '1'; } catch { return false; } }
   function setClosed(r){ try { localStorage.setItem(`closed:${r}`, '1'); } catch {} }
   function setDisabled(el, on){ if(!el) return; el.disabled = !!on; el.style.opacity = on ? '0.6' : ''; el.style.cursor = on ? 'not-allowed' : ''; }
@@ -231,9 +196,7 @@
     const send = document.getElementById('send');
     const regI = document.getElementById('reg');
     const msgI = document.getElementById('message');
-    setDisabled(send, true);
-    setDisabled(regI, true);
-    setDisabled(msgI, true);
+    setDisabled(send, true); setDisabled(regI, true); setDisabled(msgI, true);
     document.querySelectorAll('input[name="skick"]').forEach(x=>x.disabled = true);
     if (send) send.textContent = 'Stängt';
     const hint = document.querySelector('.hint');
@@ -243,13 +206,11 @@
     const send = document.getElementById('send');
     const regI = document.getElementById('reg');
     const msgI = document.getElementById('message');
-    setDisabled(send, false);
-    setDisabled(regI, false);
-    setDisabled(msgI, false);
+    setDisabled(send, false); setDisabled(regI, false); setDisabled(msgI, false);
     document.querySelectorAll('input[name="skick"]').forEach(x=>x.disabled = false);
     if (send) send.textContent = 'Skicka';
     const hint = document.querySelector('.hint');
-    if (hint) hint.textContent = 'Tips: skriv in regnr och tryck Skicka – uppdateringar och svar visas nedan.';
+    if (hint) hint.textContent = 'Tips: skriv in regnr och tryck Skicka – uppdateringar och svar visas ovan.';
   }
 
   /* ====== DOM ====== */
@@ -291,192 +252,45 @@
     addBubble('❌ Promise-fel: ' + (e.reason?.message || e.reason || ''), 'them');
   });
 
+  /* ====== Sticky composer: ge chatten extra botten-padding ====== */
+  function setComposerOffset(){
+    const fc = document.querySelector('.form-card.sticky');
+    const ch = document.getElementById('chat');
+    if(!fc || !ch) return;
+    const h = Math.ceil(fc.getBoundingClientRect().height);
+    ch.style.paddingBottom = `calc(${h}px)`;
+  }
+
   /* ====== Beteende ====== */
   reg?.addEventListener('input', ()=>{
     reg.value = reg.value.toUpperCase();
     const r = (reg.value || '').trim();
     if (r && isClosed(r)) markClosed(r); else markOpen();
+    setComposerOffset();
   });
+  window.addEventListener('resize', setComposerOffset);
+  window.addEventListener('orientationchange', setComposerOffset);
+
+  // Tvinga val av "Skick"
+  function validateSkick(){
+    const groupEl = document.getElementById('skickGroup');
+    const radios  = document.querySelectorAll('input[name="skick"]');
+    const hasPick = Array.from(radios).some(r => r.checked);
+    if(!hasPick){
+      groupEl?.classList.add('invalid');
+      form.reportValidity?.();
+      addBubble('Välj ett alternativ under <b>Skick</b> innan du skickar.', 'them');
+      radios[0]?.focus();
+      setComposerOffset();
+      return false;
+    }
+    groupEl?.classList.remove('invalid');
+    setComposerOffset();
+    return true;
+  }
+
   form?.addEventListener('submit', async (e)=>{ e.preventDefault(); await submitCase(); });
 
   const POLL_INTERVAL_MS = 5000;
-  const polls = new Map(); // reg -> { timer, lastStatus, lastMsg, startedAt }
-  let inFlight=false;
-
-  async function submitCase(){
-    const r = norm(reg?.value); if(!r){ reg?.focus(); return; }
-
-    // STOPP om ärendet är stängt
-    if (isClosed(r)) {
-      addBubble('Ärendet är avslutat. Nya meddelanden tas inte emot.', 'them');
-      return;
-    }
-// Tvinga val av "skick"
-const groupEl = document.getElementById('skickGroup');
-const radios  = document.querySelectorAll('input[name="skick"]');
-const hasPick = Array.from(radios).some(r => r.checked);
-
-if (!hasPick) {
-  if (groupEl) groupEl.classList.add('invalid');
-  // Visa även inbyggd validering (stöd för skärmläsare/UA)
-  form.reportValidity?.();
-  addBubble('Välj ett alternativ under <b>Skick</b> innan du skickar.', 'them');
-  radios[0]?.focus();
-  return;
-} else {
-  groupEl?.classList.remove('invalid');
-}
-    if(inFlight) return;
-    const skick        = currentSkick();
-    const userMessage  = norm(msgEl?.value);
-    let   message      = userMessage;
-    let   autoSeed     = false;
-
-    // Hej-seed första gången utan fritext (localStorage)
-    if (!message && !wasSeeded(r)) {
-      message  = '-';
-      autoSeed = true;
-    }
-
-    // lås knappen & UI
-    inFlight = true;
-    if (send){ send.disabled = true; send.style.pointerEvents = 'none'; }
-
-    // Intro-bubblan endast första gången för REG (lagras i localStorage nu)
-    if (!hasShownIntro(r)) {
-      addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
-      markIntroShown(r);
-    }
-    // Visa bara användarens egen fritext (inte auto-seed "Hej")
-    if (userMessage) addBubble(`Du: ${userMessage}`, 'me');
-    addMeta('Skickar till Tesla…');
-
-    const payload = { operation:'submit', token:TOKEN, registreringsnummer:r, skick, message };
-    log('SUBMIT →', SUBMIT_ENDPOINT, payload);
-
-    try{
-      const res  = await fetch(SUBMIT_ENDPOINT, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      const out = await logFetch('SUBMIT', res);
-
-      if(!out.ok){
-        addBubble(`❌ SUBMIT ${out.status}: ${out.text?.slice(0,300) || '(ingen body)'}`, 'them');
-        return;
-      }
-
-      // Markera att första submit skett (så "Hej" inte skickas igen)
-      if (!wasSeeded(r)) markSeeded(r);
-
-      const data = out.json || {};
-      const initial = data.initial || {};
-      const st   = norm(initial.status ?? data.status ?? '');
-      const link = initial.link || data.link || dashboardLink(r);
-
-      // Dedup + ev. stäng
-      const prevStored = getStoredStatus(r);
-      if(st){
-        setStoredStatus(r, st);
-        if (st !== prevStored) {
-          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
-        }
-        if (st === 'Klar') { markClosed(r); }
-      }
-
-      if(msgEl) msgEl.value = '';
-      startPoll(r);
-
-    }catch(err){
-      addBubble('❌ Nätverksfel vid SUBMIT: ' + (err?.message || err), 'them');
-      console.error(err);
-    }finally{
-      setTimeout(()=>{
-        inFlight=false;
-        if (send){ send.disabled=false; send.style.pointerEvents='auto'; }
-      }, 600);
-    }
-  }
-
-  function startPoll(r){
-    stopPoll(r);
-    const state = { lastStatus: null, lastMsg: null, startedAt: Date.now() };
-    // Initiera med lagrat värde (localStorage) för dedupe
-    state.lastStatus = getStoredStatus(r) || null;
-    state.lastMsg    = getStoredMsg(r)    || null;
-    polls.set(r, state);
-
-    const tick = async ()=>{
-      try{
-        const res = await fetch(STATUS_ENDPOINT, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ registreringsnummer: r })
-        });
-        const out = await logFetch('GET_STATUS', res);
-        if(!out.ok) return;
-
-        const data = out.json || {};
-        log('get_status data', data);
-        if(!data || !data.found) return;
-
-        // Status (dedupe)
-        const status = norm(data.status);
-        const link   = data.link || dashboardLink(r);
-        if(status && status !== state.lastStatus){
-          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
-          state.lastStatus = status;
-          setStoredStatus(r, status);
-          if(status === 'Klar'){ markClosed(r); stopPoll(r); }
-        }
-
-        // Teamets fritext (dedupe)
-        const lastMsg = norm(data.lastMessage);
-        const lastBy  = norm(data.lastMessageBy).toLowerCase();
-        const treatAsTeam = lastBy ? (lastBy !== 'gire') : true;
-        if(lastMsg && treatAsTeam){
-          const previously = state.lastMsg ?? getStoredMsg(r);
-          if(lastMsg !== previously){
-            addBubble(`Tesla: ${lastMsg}`, 'them');
-            state.lastMsg = lastMsg;
-            setStoredMsg(r, lastMsg);
-          }
-        }
-      }catch(err){
-        console.error(err);
-      }
-    };
-
-    // kör direkt och sedan på intervall
-    tick();
-    state.timer = setInterval(tick, POLL_INTERVAL_MS);
-  }
-
-  function stopPoll(r){
-    const s = polls.get(r);
-    if(s && s.timer) clearInterval(s.timer);
-    polls.delete(r);
-  }
-
-  // Manuell uppdatering
-  refreshBtn?.addEventListener('click', ()=>{
-    const r = norm(reg?.value);
-    if(r) startPoll(r);
-  });
-
-  // Återstart poll vid återkomst till fliken
-  document.addEventListener('visibilitychange', ()=>{
-    if(!document.hidden){
-      const r = norm(reg?.value); if(r) startPoll(r);
-    }
-  });
-
-  // Init vid sidladdning: stäng om regnr redan markerats som stängt
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const r = norm(reg?.value);
-    if (r && isClosed(r)) markClosed(r);
-  });
-</script>
-</body>
-</html>
+  const polls = new Map(); // reg -> {
+::contentReference[oaicite:0]{index=0}
