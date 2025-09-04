@@ -76,7 +76,7 @@
         </div>
 
         <div class="radios" id="skickGroup">
-          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." > <span>inspektion genomförd utan anmärkning.</span></label>
+          <label class="radio"><input type="radio" name="skick" value="inspektion genomförd utan anmärkning." checked> <span>inspektion genomförd utan anmärkning.</span></label>
           <label class="radio"><input type="radio" name="skick" value="Inspektion behöver granskas."> <span>Inspektion behöver granskas.</span></label>
         </div>
 
@@ -117,6 +117,10 @@
   function setStoredStatus(r,v){ setStored(`status:${r}`, v || ''); }
   function hasShownIntro(r){ return getStored(`intro:${r}`) === '1'; }
   function markIntroShown(r){ setStored(`intro:${r}`, '1'); }
+
+  // Hej-seed (första submit utan fritext)
+  function wasSeeded(r){ try { return localStorage.getItem(`seeded:${r}`) === '1'; } catch { return false; } }
+  function markSeeded(r){ try { localStorage.setItem(`seeded:${r}`, '1'); } catch {} }
 
   // Close/Open helpers (per regnr)
   function isClosed(r){ try { return sessionStorage.getItem(`closed:${r}`) === '1'; } catch { return false; } }
@@ -209,22 +213,30 @@
     }
 
     if(inFlight) return;
-    const skick   = currentSkick();
-    const message = norm(msgEl?.value);
+    const skick        = currentSkick();
+    const userMessage  = norm(msgEl?.value);   // det användaren skrev
+    let   message      = userMessage;          // det som faktiskt skickas
+    let   autoSeed     = false;
+
+    // Hej-seed: första submit utan fritext skickar "Hej" (garanterar kortpostning)
+    if (!message && !wasSeeded(r)) {
+      message  = 'Hej';
+      autoSeed = true; // visas inte som bubbla
+    }
 
     // lås knappen & UI
     inFlight = true;
     if (send){ send.disabled = true; send.style.pointerEvents = 'none'; }
 
-    // UI: visa intro bara första gången för detta regnr
+    // Intro-bubblan visas bara första gången för detta regnr
     if (!hasShownIntro(r)) {
       addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
       markIntroShown(r);
     }
-    if(message) addBubble(`Du: ${message}`, 'me');
+    // Visa endast användarens text (inte auto-seed "Hej")
+    if (userMessage) addBubble(`Du: ${userMessage}`, 'me');
     addMeta('Skickar till Tesla…');
 
-    // payload
     const payload = { operation:'submit', token:TOKEN, registreringsnummer:r, skick, message };
     log('SUBMIT →', SUBMIT_ENDPOINT, payload);
 
@@ -241,25 +253,25 @@
         return;
       }
 
+      // Markera att första submit skett (så "Hej" inte skickas igen)
+      if (!wasSeeded(r)) markSeeded(r);
+
       const data = out.json || {};
       const initial = data.initial || {};
       const st   = norm(initial.status ?? data.status ?? '');
       const link = initial.link || data.link || dashboardLink(r);
 
-      // Dedup: spara initial status så första poll-tick inte ekoar samma status
+      // Dedup + ev. stäng
       const prevStored = getStoredStatus(r);
       if(st){
         setStoredStatus(r, st);
         if (st !== prevStored) {
-          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
+          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
         }
         if (st === 'Klar') { markClosed(r); }
       }
 
-      // töm fritextfältet
       if(msgEl) msgEl.value = '';
-
-      // starta/återstarta polling på detta regnr
       startPoll(r);
 
     }catch(err){
@@ -299,7 +311,7 @@
         const status = norm(data.status);
         const link   = data.link || dashboardLink(r);
         if(status && status !== state.lastStatus){
-          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
+          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
           state.lastStatus = status;
           setStoredStatus(r, status);
           if(status === 'Klar'){ markClosed(r); stopPoll(r); }
@@ -309,7 +321,6 @@
         const lastMsg = norm(data.lastMessage);
         const lastBy  = norm(data.lastMessageBy).toLowerCase();
         const treatAsTeam = lastBy ? (lastBy !== 'kund') : true; // tom avsändare = räkna som team
-
         if(lastMsg && treatAsTeam){
           const previously = state.lastMsg ?? getStoredMsg(r);
           if(lastMsg !== previously){
