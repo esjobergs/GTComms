@@ -118,6 +118,39 @@
   function hasShownIntro(r){ return getStored(`intro:${r}`) === '1'; }
 function markIntroShown(r){ setStored(`intro:${r}`, '1'); }
 
+  // --- Close/Open helpers (per regnr, sparas i sessionStorage) ---
+function isClosed(r){ try { return sessionStorage.getItem(`closed:${r}`) === '1'; } catch { return false; } }
+function setClosed(r){ try { sessionStorage.setItem(`closed:${r}`, '1'); } catch {} }
+
+function setDisabled(el, on){ if(!el) return; el.disabled = !!on; el.style.opacity = on ? '0.6' : ''; el.style.cursor = on ? 'not-allowed' : ''; }
+
+function markClosed(r){
+  setClosed(r);
+  const send = document.getElementById('send');
+  const regI = document.getElementById('reg');
+  const msgI = document.getElementById('message');
+  setDisabled(send, true);
+  setDisabled(regI, true);
+  setDisabled(msgI, true);
+  document.querySelectorAll('input[name="skick"]').forEach(x=>x.disabled = true);
+  if (send) send.textContent = 'Stängt';
+  const hint = document.querySelector('.hint');
+  if (hint) hint.textContent = 'Ärendet är avslutat. Nya meddelanden tas inte emot.';
+}
+
+function markOpen(){
+  const send = document.getElementById('send');
+  const regI = document.getElementById('reg');
+  const msgI = document.getElementById('message');
+  setDisabled(send, false);
+  setDisabled(regI, false);
+  setDisabled(msgI, false);
+  document.querySelectorAll('input[name="skick"]').forEach(x=>x.disabled = false);
+  if (send) send.textContent = 'Skicka';
+  const hint = document.querySelector('.hint');
+  if (hint) hint.textContent = 'Tips: skriv in regnr och tryck Skicka – uppdateringar och svar visas nedan.';
+}
+  
   /* ====== DOM ====== */
   const chat = document.getElementById('chat');
   const reg  = document.getElementById('reg');
