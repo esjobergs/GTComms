@@ -25,17 +25,14 @@
 
     .form-card{ margin:var(--space); background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; }
     .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .input,.button{ height:46px; border-radius:12px; padding:0 12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:16px; }
-    .input{ flex:1 1 260px; min-width:200px; }
-    .input:focus, .textarea:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
-    .button{ background:var(--accent); border:none; color:#fff; cursor:pointer; font-weight:600; padding:0 16px; box-shadow:0 2px 0 rgba(0,0,0,.03); }
-    .button:active{ background:var(--accent-press); }
-    .button:disabled{ opacity:.6; cursor:not-allowed; }
+
 
     .radios{ display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; }
     .radio{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:12px; background:#fff; }
     input[type="radio"]{ width:18px; height:18px; accent-color:var(--accent); }
 
+
+    
     .textarea{
       width:100%; min-height:64px; resize:vertical; border-radius:12px; padding:10px 12px;
       border:1px solid var(--border); background:#fff; color:#0f172a; font-size:16px; margin-top:10px;
@@ -43,6 +40,13 @@
 
     .hint{ font-size:12px; color:var(--muted); margin-top:6px; }
 
+    .input,.button{ height:46px; border-radius:12px; padding:0 12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:16px; }
+    .input{ flex:1 1 260px; min-width:200px; }
+    .input:focus, .textarea:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
+    .button{ background:var(--accent); border:none; color:#fff; cursor:pointer; font-weight:600; padding:0 16px; box-shadow:0 2px 0 rgba(0,0,0,.03); }
+    .button:active{ background:var(--accent-press); }
+    .button:disabled{ opacity:.6; cursor:not-allowed; }
+    
     .chat-wrap{ margin:0 var(--space) var(--space); }
     .card{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
     .chat{ display:flex; flex-direction:column; gap:10px; padding:14px; background:var(--subtle); border-radius:var(--radius); border:1px solid var(--border); min-height:50dvh; overflow:auto; }
