@@ -16,6 +16,7 @@
     html, body { height:100%; }
     body{ margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial; min-height:100dvh; display:flex; }
     .app{ min-height:100dvh; width:100%; max-width:820px; margin:0 auto; display:flex; flex-direction:column; }
+
     .topbar{ position:sticky; top:0; z-index:10; background:var(--card); padding:calc(var(--space) - 6px) var(--space); padding-top:calc(var(--space) + var(--safe-t)); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .title{ font-weight:700; font-size:18px; letter-spacing:.2px; }
     .toolbar{ display:flex; gap:8px; }
@@ -50,7 +51,14 @@
     .them{ align-self:flex-start; background:var(--bubble-them); }
     .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
     a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
-    @media (max-width:520px){ .bubble{ max-width:92%; } .row{ flex-direction:column; align-items:stretch; } .button,.input{ width:100%; } .radios{ flex-direction:column; gap:8px; } .chat{ min-height:60dvh; } }
+
+    @media (max-width:520px){
+      .bubble{ max-width:92%; }
+      .row{ flex-direction:column; align-items:stretch; }
+      .button,.input{ width:100%; }
+      .radios{ flex-direction:column; gap:8px; }
+      .chat{ min-height:60dvh; }
+    }
   </style>
 </head>
 <body>
@@ -83,29 +91,28 @@
 
 <script>
   /* ====== KONFIG ====== */
-  const SUBMIT_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5a0a1fb25b70498a932edd00369aee0d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=52mAKCA0oJWXdb9LIeuJqGu_TWtQn51-oGu8GGrs800";   // submit-flow
-  const STATUS_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4527da04eaa242ab8997f6b86b6c34d1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cxKEfv2pIz_os5Cjt16jWp2LqX4bgWBzftS40WYdFFg";   // get_status-flow
+  const SUBMIT_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5a0a1fb25b70498a932edd00369aee0d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=52mAKCA0oJWXdb9LIeuJqGu_TWtQn51-oGu8GGrs800";   // din submit-flow URL (https...sig=...)
+  const STATUS_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4527da04eaa242ab8997f6b86b6c34d1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cxKEfv2pIz_os5Cjt16jWp2LqX4bgWBzftS40WYdFFg"; // ditt separata get_status-flow
   const TOKEN = "TOKEN_ABC123";
-  const DEBUG = true; // stäng av när allt funkar
+  const DEBUG = true; // sätt till false när allt är stabilt
 
-  /* ====== HJÄLPFUNKTIONER ====== */
+  /* ====== DEBUG & helpers ====== */
+  function log(...a){ if (DEBUG) console.log('[chat]', ...a); }
   function norm(s){ return (s ?? '').toString().trim(); }
-  function normStatus(s){ return norm(s).replace(/\.+$/,''); } // ta bort avslutande punkt
 
-  async function postJson(url, payload){
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const text = await res.text();
-    let json=null; try{ json = JSON.parse(text); }catch(_){}
-    return { ok:res.ok, status:res.status, text, json };
+  async function logFetch(label, res){
+    const text = await res.text(); // läs alltid text (även på fel)
+    let json = null; try { json = JSON.parse(text); } catch(_){}
+    console.log(`%c${label} ${res.status}`, 'color:#2563eb;font-weight:600;', res);
+    console.log(`${label} body:`, json ?? text);
+    return { ok: res.ok, status: res.status, text, json };
   }
-  function showHttpError(where, r){
-    addBubble(`❌ ${where} ${r.status}: ${r.text?.slice(0,300) || '(ingen body)'}`, 'them');
-  }
-  const log = (...a)=>{ if(DEBUG) console.log('[chat]', ...a); };
+
+  // små hjälpmetoder för dedup i chatten
+  function getStored(key){ try { return sessionStorage.getItem(key) || ''; } catch { return ''; } }
+  function setStored(key,val){ try { sessionStorage.setItem(key, val); } catch {} }
+  function getStoredMsg(r){ return getStored(`msg:${r}`); }
+  function setStoredMsg(r,v){ setStored(`msg:${r}`, v); }
 
   /* ====== DOM ====== */
   const chat = document.getElementById('chat');
@@ -138,15 +145,6 @@
     return `https://giremobility.com/customer/dashboard?page=1&pageSize=50&search=${encodeURIComponent(r)}`;
   }
 
-  /* ====== LAGRING (dedupe) ====== */
-  const keyStatus = r => `chat:lastStatus:${r}`;
-  const getStoredStatus = r => { try { return sessionStorage.getItem(keyStatus(r)); } catch(_) { return null; } };
-  const setStoredStatus = (r, s) => { try { if(s!=null) sessionStorage.setItem(keyStatus(r), s); } catch(_){} };
-
-  const keyMsg = r => `chat:lastMsg:${r}`;
-  const getStoredMsg = r => { try { return sessionStorage.getItem(keyMsg(r)); } catch(_) { return null; } };
-  const setStoredMsg = (r, s) => { try { if(s!=null) sessionStorage.setItem(keyMsg(r), s); } catch(_){} };
-
   /* ====== FELVISNING FÖR JS ====== */
   window.addEventListener('error', (e)=>{
     addBubble('❌ JS-fel: ' + (e.message || e.error?.message || e.filename), 'them');
@@ -159,10 +157,9 @@
   reg?.addEventListener('input', ()=>{ reg.value = reg.value.toUpperCase(); });
   form?.addEventListener('submit', async (e)=>{ e.preventDefault(); await submitCase(); });
 
-  let inFlight=false;
   const POLL_INTERVAL_MS = 5000;
-  const MAX_POLL_MS = 30 * 60 * 1000;
   const polls = new Map(); // reg -> { timer, lastStatus, lastMsg, startedAt }
+  let inFlight=false;
 
   async function submitCase(){
     if(inFlight) return;
@@ -170,133 +167,109 @@
     const skick   = currentSkick();
     const message = norm(msgEl?.value);
 
-    inFlight=true; if(send) send.disabled=true;
+    inFlight = true; if (send) send.disabled = true;
+
+    // UI: visa vad användaren skrev
     addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
-    if(message){ addBubble(`Du: ${message}`,'me'); setStoredMsg(r, message); }
+    if(message) addBubble(`Du: ${message}`, 'me');
     addMeta('Skickar till Tesla…');
 
-    try{
-      log('POST → SUBMIT', SUBMIT_ENDPOINT, {operation:'submit', token:TOKEN, registreringsnummer:r, skick, message});
-      const resp = await postJson(SUBMIT_ENDPOINT, {
-        operation:'submit',
-        token:TOKEN,
-        registreringsnummer:r,
-        skick,
-        message
-      });
+    // bygg payload
+    const payload = {
+      operation: 'submit',
+      token: TOKEN,
+      registreringsnummer: r,
+      skick,
+      message
+    };
+    log('SUBMIT →', SUBMIT_ENDPOINT, payload);
 
-      if(!resp.ok){
-        showHttpError('SUBMIT', resp);
+    try{
+      const res  = await fetch(SUBMIT_ENDPOINT, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const out = await logFetch('SUBMIT', res);
+
+      if(!out.ok){
+        addBubble(`❌ SUBMIT ${out.status}: ${out.text?.slice(0,300) || '(ingen body)'}`, 'them');
         return;
       }
 
-      const data = resp.json || {};
-      log('submit response', data);
-
-      // initial status (acceptera båda formaten)
-      let st = '', link = dashboardLink(r);
-      if(data.initial){
-        st   = data.initial.status || '';
-        link = data.initial.link || link;
-      }else if(typeof data.status !== 'undefined'){
-        st   = typeof data.status==='string' ? data.status : (data.status && data.status.Value) ? data.status.Value : '';
-        link = data.link || link;
-      }
+      const data = out.json || {};
+      // läs ev. initial status från svaret (men låt pollingen vara sanningen)
+      const initial = data.initial || {};
+      const st   = norm(initial.status ?? data.status ?? '');
+      const link = initial.link || data.link || dashboardLink(r);
 
       if(st){
-        const prev = getStoredStatus(r);
-        const stNorm = normStatus(st);
-        if(stNorm !== prev){
-          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${stNorm}</b>. <a href="${link}" target="_blank" rel="noopener">  </a>`);
-          setStoredStatus(r, stNorm);
-        }
-      }else{
-        addBubble(`ℹ️ Submit lyckades men utan status i svaret.`, 'them');
+        addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
       }
 
-      msgEl.value=''; // töm meddelanderutan efter skick
-      startPoll(r, getStoredStatus(r), getStoredMsg(r));
+      // rensa fritextrutan efter lyckad submit
+      if(msgEl) msgEl.value = '';
+
+      // starta/återstarta polling på detta regnr
+      startPoll(r);
 
     }catch(err){
       addBubble('❌ Nätverksfel vid SUBMIT: ' + (err?.message || err), 'them');
       console.error(err);
     }finally{
-      setTimeout(()=>{ if(send) send.disabled=false; inFlight=false; },600);
+      setTimeout(()=>{ if (send) send.disabled=false; inFlight=false; }, 600);
     }
   }
 
-  /* ====== POLLING: status + fritext (teamets svar) ====== */
-  function startPoll(r, lastKnownStatus=null, lastKnownMsg=null){
+  function startPoll(r){
     stopPoll(r);
-    const state={ lastStatus:lastKnownStatus || null, lastMsg:lastKnownMsg || null, startedAt:Date.now() };
-    polls.set(r,state);
+    const state = { lastStatus: null, lastMsg: null, startedAt: Date.now() };
+    polls.set(r, state);
 
     const tick = async ()=>{
-      if(Date.now()-state.startedAt > MAX_POLL_MS){ stopPoll(r); return; }
+      try{
+        const res = await fetch(STATUS_ENDPOINT, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ registreringsnummer: r })
+        });
+        const out = await logFetch('GET_STATUS', res);
+        if(!out.ok) return;
 
-      const resp = await postJson(STATUS_ENDPOINT, {
-        registreringsnummer:r,
-        operation:'get_status',
-        token:TOKEN
-      });
-      if(!resp.ok){ showHttpError('STATUS', resp); return; }
+        const data = out.json || {};
+        log('get_status data', data);
+        if(!data || !data.found) return;
 
-      const data = resp.json || {};
-      log('get_status data', data);
-
-      // --- STATUS ---
-      const status = (typeof data.status==='string')
-        ? data.status
-        : (data.status && data.status.Value) ? data.status.Value : '';
-
-      const stNorm = normStatus(status);
-      const link   = data.link || dashboardLink(r);
-
-      if(stNorm){
-        if(state.lastStatus == null){
-          const prev = getStoredStatus(r);
-          if(stNorm !== prev){
-            addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${stNorm}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
-            setStoredStatus(r, stNorm);
-          }
-          state.lastStatus = stNorm;
-        } else if(stNorm !== state.lastStatus){
-          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${stNorm}</b>. <a href="${link}" target="_blank" rel="noopener"> </a>`);
-          state.lastStatus = stNorm;
-          setStoredStatus(r, stNorm);
+        // Status
+        const status = norm(data.status);
+        const link   = data.link || dashboardLink(r);
+        if(status && status !== state.lastStatus){
+          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+          state.lastStatus = status;
+          if(status === 'Klar'){ stopPoll(r); }
         }
+
+        // Fritext (teamets svar)
+        const lastMsg = norm(data.lastMessage);
+        const lastBy  = norm(data.lastMessageBy).toLowerCase();
+        const treatAsTeam = lastBy ? (lastBy !== 'kund') : true; // tom avsändare = räkna som team
+
+        if(lastMsg && treatAsTeam){
+          const previously = state.lastMsg ?? getStoredMsg(r);
+          if(lastMsg !== previously){
+            addBubble(`Team: ${lastMsg}`, 'them');
+            state.lastMsg = lastMsg;
+            setStoredMsg(r, lastMsg);
+          }
+        }
+      }catch(err){
+        console.error(err);
       }
-
-// --- FRITEXT (teamets svar) ---
-const lastMsg = norm(data.lastMessage);
-const lastByRaw = norm(data.lastMessageBy);
-const lastAt    = norm(data.lastMessageAt); // valfritt, men bra att ha
-const lastBy    = lastByRaw.toLowerCase();
-
-// Behandla som TEAM om avsändaren inte är kund (eller saknas)
-const customerAliases = ['kund','customer','extern','user','client'];
-const isFromCustomer  = customerAliases.includes(lastBy);
-const treatAsTeam     = lastBy ? !isFromCustomer : true; // saknas -> anta Tesla
-
-if (lastMsg && treatAsTeam) {
-  if (state.lastMsg == null) {
-    const prevMsg = getStoredMsg(r);
-    if (lastMsg !== prevMsg) {
-      addBubble(`Tesla: ${lastMsg}`, 'them');
-      setStoredMsg(r, lastMsg);
-    }
-    state.lastMsg = lastMsg;
-  } else if (lastMsg !== state.lastMsg) {
-    addBubble(`Tesla: ${lastMsg}`, 'them');
-    state.lastMsg = lastMsg;
-    setStoredMsg(r, lastMsg);
-  }
-}
-
     };
 
+    // kör direkt och sedan på intervall
+    tick();
     state.timer = setInterval(tick, POLL_INTERVAL_MS);
-    tick(); // kör direkt första gången
   }
 
   function stopPoll(r){
@@ -305,17 +278,16 @@ if (lastMsg && treatAsTeam) {
     polls.delete(r);
   }
 
-  // Manuell uppdatering → starta om poll med lagrat läge
+  // Manuell uppdateringsknapp
   refreshBtn?.addEventListener('click', ()=>{
     const r = norm(reg?.value);
-    if(r) startPoll(r, getStoredStatus(r), getStoredMsg(r));
+    if(r) startPoll(r);
   });
 
-  // Starta om poll när fliken blir aktiv
+  // Återstart poll vid återkomst till fliken
   document.addEventListener('visibilitychange', ()=>{
     if(!document.hidden){
-      const r = norm(reg?.value);
-      if(r) startPoll(r, getStoredStatus(r), getStoredMsg(r));
+      const r = norm(reg?.value); if(r) startPoll(r);
     }
   });
 </script>
