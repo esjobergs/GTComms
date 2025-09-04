@@ -115,6 +115,8 @@
   function setStoredMsg(r,v){ setStored(`msg:${r}`, v || ''); }
   function getStoredStatus(r){ return getStored(`status:${r}`); }
   function setStoredStatus(r,v){ setStored(`status:${r}`, v || ''); }
+  function hasShownIntro(r){ return getStored(`intro:${r}`) === '1'; }
+function markIntroShown(r){ setStored(`intro:${r}`, '1'); }
 
   /* ====== DOM ====== */
   const chat = document.getElementById('chat');
@@ -174,8 +176,11 @@
     if (send){ send.disabled = true; send.style.pointerEvents = 'none'; }
 
     // UI: visa användarens inmatning
-    addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
-    if(message) addBubble(`Du: ${message}`, 'me');
+if (!hasShownIntro(r)) {
+  addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
+  markIntroShown(r);
+}
+if (message) addBubble(`Du: ${message}`, 'me');
     addMeta('Skickar till Tesla…');
 
     // payload
