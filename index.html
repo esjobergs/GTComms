@@ -207,7 +207,7 @@
   function hasShownIntro(r){ return getStored(`intro:${r}`) === '1'; }
   function markIntroShown(r){ setStored(`intro:${r}`, '1'); }
 
-  // Hej-seed (första submit utan fritext – redan i localStorage)
+  // -seed (första submit utan fritext – redan i localStorage)
   function wasSeeded(r){ try { return localStorage.getItem(`seeded:${r}`) === '1'; } catch { return false; } }
   function markSeeded(r){ try { localStorage.setItem(`seeded:${r}`, '1'); } catch {} }
 
@@ -309,7 +309,7 @@
 
     // Hej-seed första gången utan fritext (localStorage)
     if (!message && !wasSeeded(r)) {
-      message  = 'Hej';
+      message  = '-';
       autoSeed = true;
     }
 
