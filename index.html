@@ -1,4 +1,4 @@
-<!doctype html> 
+<!doctype html>
 <html lang="sv">
 <head>
   <meta charset="utf-8"/>
@@ -27,7 +27,7 @@
     /* Sticky composer i botten */
     .form-card.sticky{
       position: sticky; bottom: 0; z-index: 9;
-      margin-bottom: 0;           /* så den verkligen ligger mot botten */
+      margin-bottom: 0;
       padding-bottom: calc(14px + var(--safe-b));
       border-top: 1px solid var(--border);
       border-bottom: 0;
@@ -36,6 +36,12 @@
     }
 
     .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .row.single{ flex-direction:row; }
+    .row.column{ flex-direction:column; align-items:stretch; gap:10px; }
+
+    .actions{ display:flex; justify-content:flex-end; }
+    .actions .button{ min-width:140px; }
+
     .input,.button{ height:46px; border-radius:12px; padding:0 12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:16px; }
     .input{ flex:1 1 260px; min-width:200px; }
     .input:focus, .textarea:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
@@ -43,13 +49,13 @@
     .button:active{ background:var(--accent-press); }
     .button:disabled{ opacity:.6; cursor:not-allowed; }
 
-    .radios{ display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; }
+    .radios{ display:flex; gap:14px; flex-wrap:wrap; margin-top:4px; }
     .radio{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:12px; background:#fff; }
     input[type="radio"]{ width:18px; height:18px; accent-color:var(--accent); }
 
     .textarea{
       width:100%; min-height:64px; resize:vertical; border-radius:12px; padding:10px 12px;
-      border:1px solid var(--border); background:#fff; color:#0f172a; font-size:16px; margin-top:10px;
+      border:1px solid var(--border); background:#fff; color:#0f172a; font-size:16px; margin-top:6px;
     }
 
     .hint{ font-size:12px; color:var(--muted); margin-top:6px; }
@@ -67,7 +73,8 @@
     @media (max-width:520px){
       .bubble{ max-width:92%; }
       .row{ flex-direction:column; align-items:stretch; }
-      .button,.input{ width:100%; }
+      .actions{ justify-content:stretch; }
+      .actions .button{ width:100%; }
       .radios{ flex-direction:column; gap:8px; }
       .chat{ min-height:60dvh; }
     }
@@ -126,14 +133,15 @@
     <!-- 2) INMATNING UNDER (sticky) -->
     <section class="form-card sticky">
       <form id="form" novalidate>
-        <div class="row">
+        <!-- Rad 1: Regnummer (ensam) -->
+        <div class="row single">
           <input id="reg" class="input" placeholder="Registreringsnummer (t.ex. ABC123)" autocomplete="off" autocapitalize="characters" inputmode="latin-prose" />
-          <button id="send" class="button" type="submit">Skicka</button>
         </div>
 
+        <!-- Rad 2: Radio-val (krävs) -->
         <div class="radios" id="skickGroup">
           <label class="radio">
-            <input type="radio" name="skick" value="Inspektion genomförd utan anmärkning" required>
+            <input type="radio" name="skick" value="Inspektion genomförd utan anmärkning" required checked>
             <span>Inspektion genomförd utan anmärkning</span>
           </label>
           <label class="radio">
@@ -142,7 +150,15 @@
           </label>
         </div>
 
-        <textarea id="message" class="textarea" placeholder="Meddelande till Tesla (valfritt)"></textarea>
+        <!-- Rad 3: Fritext -->
+        <div class="row column">
+          <textarea id="message" class="textarea" placeholder="Meddelande till Tesla (valfritt)"></textarea>
+        </div>
+
+        <!-- Rad 4: Actions – knappen längst ned -->
+        <div class="actions">
+          <button id="send" class="button" type="submit">Skicka</button>
+        </div>
 
         <div class="hint">Tips: skriv in regnr och tryck Skicka – uppdateringar och svar visas ovan.</div>
       </form>
@@ -261,17 +277,7 @@
     ch.style.paddingBottom = `calc(${h}px)`;
   }
 
-  /* ====== Beteende ====== */
-  reg?.addEventListener('input', ()=>{
-    reg.value = reg.value.toUpperCase();
-    const r = (reg.value || '').trim();
-    if (r && isClosed(r)) markClosed(r); else markOpen();
-    setComposerOffset();
-  });
-  window.addEventListener('resize', setComposerOffset);
-  window.addEventListener('orientationchange', setComposerOffset);
-
-  // Tvinga val av "Skick"
+  /* ====== Validering Skick ====== */
   function validateSkick(){
     const groupEl = document.getElementById('skickGroup');
     const radios  = document.querySelectorAll('input[name="skick"]');
@@ -289,8 +295,146 @@
     return true;
   }
 
+  /* ====== Beteende ====== */
+  reg?.addEventListener('input', ()=>{
+    reg.value = reg.value.toUpperCase();
+    const r = (reg.value || '').trim();
+    if (r && isClosed(r)) markClosed(r); else markOpen();
+    setComposerOffset();
+  });
+  window.addEventListener('resize', setComposerOffset);
+  window.addEventListener('orientationchange', setComposerOffset);
+
   form?.addEventListener('submit', async (e)=>{ e.preventDefault(); await submitCase(); });
 
   const POLL_INTERVAL_MS = 5000;
-  const polls = new Map(); // reg -> {
-::contentReference[oaicite:0]{index=0}
+  const polls = new Map(); // reg -> { timer, lastStatus, lastMsg, startedAt }
+  let inFlight=false;
+
+  async function submitCase(){
+    const r = norm(reg?.value); if(!r){ reg?.focus(); return; }
+    if(!validateSkick()) return;
+
+    if (isClosed(r)) { addBubble('Ärendet är avslutat. Nya meddelanden tas inte emot.', 'them'); return; }
+    if(inFlight) return;
+
+    const skick        = currentSkick();
+    const userMessage  = norm(msgEl?.value);
+    let   message      = userMessage;
+
+    // Hej-seed första gången utan fritext
+    if (!message && !wasSeeded(r)) message = 'Hej';
+
+    // lås knappen & UI
+    inFlight = true; if (send){ send.disabled = true; send.style.pointerEvents = 'none'; }
+    setComposerOffset();
+
+    // Intro-bubblan bara första gången
+    if (!hasShownIntro(r)) { addBubble(`Du: ${r} – <i>${skick}</i>`, 'me'); markIntroShown(r); }
+    if (userMessage) addBubble(`Du: ${userMessage}`, 'me');
+    addMeta('Skickar till Tesla…');
+
+    const payload = { operation:'submit', token:TOKEN, registreringsnummer:r, skick, message };
+    log('SUBMIT →', SUBMIT_ENDPOINT, payload);
+
+    try{
+      const res  = await fetch(SUBMIT_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const out  = await logFetch('SUBMIT', res);
+      if(!out.ok){ addBubble(`❌ SUBMIT ${out.status}: ${out.text?.slice(0,300) || '(ingen body)'}`, 'them'); return; }
+
+      if (!wasSeeded(r)) markSeeded(r);
+
+      const data  = out.json || {};
+      const init  = data.initial || {};
+      const st    = norm(init.status ?? data.status ?? '');
+      const link  = init.link || data.link || dashboardLink(r);
+
+      const prevStored = getStoredStatus(r);
+      if(st){
+        setStoredStatus(r, st);
+        if (st !== prevStored) addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${st}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+        if (st === 'Klar') { markClosed(r); }
+      }
+
+      if(msgEl) msgEl.value = '';
+      startPoll(r);
+
+    }catch(err){
+      addBubble('❌ Nätverksfel vid SUBMIT: ' + (err?.message || err), 'them');
+      console.error(err);
+    }finally{
+      setTimeout(()=>{ inFlight=false; if (send){ send.disabled=false; send.style.pointerEvents='auto'; } setComposerOffset(); }, 600);
+    }
+  }
+
+  function startPoll(r){
+    stopPoll(r);
+    const state = { lastStatus: getStoredStatus(r) || null, lastMsg: getStoredMsg(r) || null, startedAt: Date.now() };
+    polls.set(r, state);
+
+    const tick = async ()=>{
+      try{
+        const res = await fetch(STATUS_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ registreringsnummer: r }) });
+        const out = await logFetch('GET_STATUS', res);
+        if(!out.ok) return;
+        const data = out.json || {};
+        if(!data || !data.found) return;
+
+        // Status
+        const status = norm(data.status);
+        const link   = data.link || dashboardLink(r);
+        if(status && status !== state.lastStatus){
+          addBubble(`Tesla: <b>Status</b> för <b>${r}</b> är nu <b>${status}</b>. <a href="${link}" target="_blank" rel="noopener">Öppna dashboard</a>`);
+          state.lastStatus = status; setStoredStatus(r, status);
+          if(status === 'Klar'){ markClosed(r); stopPoll(r); }
+        }
+
+        // Teamets fritext (ignorera Gire/kund & seed-Hej)
+        const lastMsg   = norm(data.lastMessage);
+        const lastByRaw = norm(data.lastMessageBy);
+        const lastBy    = lastByRaw.toLowerCase();
+        const isFromGire = (lastBy === 'gire' || lastBy === 'kund');
+        const isSeedHello = /^hej\s*$/i.test(lastMsg) && wasSeeded(r);
+
+        if(lastMsg && !isFromGire && !isSeedHello){
+          const previously = state.lastMsg ?? getStoredMsg(r);
+          if(lastMsg !== previously){
+            addBubble(`Tesla: ${lastMsg}`, 'them');
+            state.lastMsg = lastMsg; setStoredMsg(r, lastMsg);
+          }
+        }
+      }catch(err){ console.error(err); }
+      finally{ setComposerOffset(); }
+    };
+
+    tick();
+    state.timer = setInterval(tick, 5000);
+  }
+
+  function stopPoll(r){
+    const s = polls.get(r);
+    if(s && s.timer) clearInterval(s.timer);
+    polls.delete(r);
+  }
+
+  refreshBtn?.addEventListener('click', ()=>{
+    const r = norm(reg?.value);
+    if(r) startPoll(r);
+    setComposerOffset();
+  });
+
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden){
+      const r = norm(reg?.value); if(r) startPoll(r);
+      setComposerOffset();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const r = norm(reg?.value);
+    if (r && isClosed(r)) markClosed(r);
+    setComposerOffset();
+  });
+</script>
+</body>
+</html>
