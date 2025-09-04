@@ -60,14 +60,6 @@
       .chat{ min-height:60dvh; }
     }
 
-  /* === Exakt samma höjd på reg-fält och Skicka-knapp (mobil) === */
-@media (max-width:520px){
-  /* gemensam höjd */
-  .form-card .row #reg.input,
-  .form-card .row #send.button{
-    height: 40px !important;         /* samma höjd */
-    border-radius: 10px !important;
-  }
 
   /* inputen: kompakt padding + stäng av iOS-standard */
   .form-card .row #reg.input{
@@ -86,6 +78,37 @@
 }
       }
     }
+    /* === Samma höjd på reg-fält och Skicka-knapp (mobil) === */
+@media (max-width:520px){
+  /* gemensam höjdvariabel */
+  .form-card .row #reg.input,
+  .form-card .row #send.button{
+    --h: 44px;                   /* justera till 40/42/44 efter smak */
+    height: var(--h) !important;
+    min-height: var(--h) !important;
+    max-height: var(--h) !important;
+    border-radius: 10px !important;
+  }
+
+  /* inputen: kompakt padding + stäng av UA-stil */
+  .form-card .row #reg.input{
+    padding: 8px 10px !important;    /* mindre vertikal padding */
+    font-size: 16px !important;      /* undvik iOS-zoom */
+    line-height: 1.2 !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* knappen: flex-centrerad text + samma border som input för exakt yttre höjd */
+  .form-card .row #send.button{
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 14px !important;      /* ingen vertikal padding */
+    line-height: 1 !important;       /* vi centrerar med flex */
+    border: 1px solid var(--border) !important;  /* matcha inputens 1px border */
+  }
+}
   </style>
 </head>
 <body>
