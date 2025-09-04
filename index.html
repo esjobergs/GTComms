@@ -38,7 +38,7 @@
 
     .textarea{
       width:100%; min-height:64px; resize:vertical; border-radius:12px; padding:10px 12px;
-      border:1px solid var(--border); background:#fff; color:var(--text); font-size:16px; margin-top:10px;
+      border:1px solid var(--border); background:#fff; color:#0f172a; font-size:16px; margin-top:10px;
     }
 
     .hint{ font-size:12px; color:var(--muted); margin-top:6px; }
@@ -91,8 +91,8 @@
 
 <script>
   /* ====== KONFIG ====== */
-  const SUBMIT_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5a0a1fb25b70498a932edd00369aee0d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=52mAKCA0oJWXdb9LIeuJqGu_TWtQn51-oGu8GGrs800";   // din submit-flow URL
-  const STATUS_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4527da04eaa242ab8997f6b86b6c34d1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cxKEfv2pIz_os5Cjt16jWp2LqX4bgWBzftS40WYdFFg"; // ditt get_status-flow
+  const SUBMIT_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5a0a1fb25b70498a932edd00369aee0d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=52mAKCA0oJWXdb9LIeuJqGu_TWtQn51-oGu8GGrs800";
+  const STATUS_ENDPOINT  = "https://default9026c5f486d04b9fbd39b7d4d0fb46.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4527da04eaa242ab8997f6b86b6c34d1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=cxKEfv2pIz_os5Cjt16jWp2LqX4bgWBzftS40WYdFFg";
   const TOKEN = "TOKEN_ABC123";
   const DEBUG = true; // sätt till false när allt är stabilt
 
@@ -101,16 +101,21 @@
   function norm(s){ return (s ?? '').toString().trim(); }
 
   async function logFetch(label, res){
-    const text = await res.text(); // läs alltid text (även på fel)
+    const text = await res.text();
     let json = null; try { json = JSON.parse(text); } catch(_){}
     console.log(`%c${label} ${res.status}`, 'color:#2563eb;font-weight:600;', res);
     console.log(`${label} body:`, json ?? text);
     return { ok: res.ok, status: res.status, text, json };
   }
 
-  // sessionStorage helpers (du kan byta till localStorage om du vill spara över sidladdning)
-  function getStored(key){ try { return sessionStorage.getItem(key) || ''; } catch { return ''; } }
-  function setStored(key,val){ try { sessionStorage.setItem(key, val); } catch {} }
+  // ====== localStorage helpers (består över sidladdning & flikar) ======
+  function getStored(key){ try { return localStorage.getItem(key) || ''; } catch { return ''; } }
+  function setStored(key,val){
+    try {
+      if (val === undefined || val === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, val);
+    } catch {}
+  }
   function getStoredMsg(r){ return getStored(`msg:${r}`); }
   function setStoredMsg(r,v){ setStored(`msg:${r}`, v || ''); }
   function getStoredStatus(r){ return getStored(`status:${r}`); }
@@ -118,13 +123,13 @@
   function hasShownIntro(r){ return getStored(`intro:${r}`) === '1'; }
   function markIntroShown(r){ setStored(`intro:${r}`, '1'); }
 
-  // Hej-seed (första submit utan fritext)
+  // Hej-seed (första submit utan fritext – redan i localStorage)
   function wasSeeded(r){ try { return localStorage.getItem(`seeded:${r}`) === '1'; } catch { return false; } }
   function markSeeded(r){ try { localStorage.setItem(`seeded:${r}`, '1'); } catch {} }
 
-  // Close/Open helpers (per regnr)
-  function isClosed(r){ try { return sessionStorage.getItem(`closed:${r}`) === '1'; } catch { return false; } }
-  function setClosed(r){ try { sessionStorage.setItem(`closed:${r}`, '1'); } catch {} }
+  // Close/Open helpers (per regnr) – nu i localStorage
+  function isClosed(r){ try { return localStorage.getItem(`closed:${r}`) === '1'; } catch { return false; } }
+  function setClosed(r){ try { localStorage.setItem(`closed:${r}`, '1'); } catch {} }
   function setDisabled(el, on){ if(!el) return; el.disabled = !!on; el.style.opacity = on ? '0.6' : ''; el.style.cursor = on ? 'not-allowed' : ''; }
   function markClosed(r){
     setClosed(r);
@@ -214,26 +219,26 @@
 
     if(inFlight) return;
     const skick        = currentSkick();
-    const userMessage  = norm(msgEl?.value);   // det användaren skrev
-    let   message      = userMessage;          // det som faktiskt skickas
+    const userMessage  = norm(msgEl?.value);
+    let   message      = userMessage;
     let   autoSeed     = false;
 
-    // Hej-seed: första submit utan fritext skickar "Hej" (garanterar kortpostning)
+    // Hej-seed första gången utan fritext (localStorage)
     if (!message && !wasSeeded(r)) {
       message  = 'Hej';
-      autoSeed = true; // visas inte som bubbla
+      autoSeed = true;
     }
 
     // lås knappen & UI
     inFlight = true;
     if (send){ send.disabled = true; send.style.pointerEvents = 'none'; }
 
-    // Intro-bubblan visas bara första gången för detta regnr
+    // Intro-bubblan endast första gången för REG (lagras i localStorage nu)
     if (!hasShownIntro(r)) {
       addBubble(`Du: ${r} – <i>${skick}</i>`, 'me');
       markIntroShown(r);
     }
-    // Visa endast användarens text (inte auto-seed "Hej")
+    // Visa bara användarens egen fritext (inte auto-seed "Hej")
     if (userMessage) addBubble(`Du: ${userMessage}`, 'me');
     addMeta('Skickar till Tesla…');
 
@@ -288,7 +293,7 @@
   function startPoll(r){
     stopPoll(r);
     const state = { lastStatus: null, lastMsg: null, startedAt: Date.now() };
-    // Initiera med lagrat värde för dedupe
+    // Initiera med lagrat värde (localStorage) för dedupe
     state.lastStatus = getStoredStatus(r) || null;
     state.lastMsg    = getStoredMsg(r)    || null;
     polls.set(r, state);
@@ -320,7 +325,7 @@
         // Teamets fritext (dedupe)
         const lastMsg = norm(data.lastMessage);
         const lastBy  = norm(data.lastMessageBy).toLowerCase();
-        const treatAsTeam = lastBy ? (lastBy !== 'kund') : true; // tom avsändare = räkna som team
+        const treatAsTeam = lastBy ? (lastBy !== 'kund') : true;
         if(lastMsg && treatAsTeam){
           const previously = state.lastMsg ?? getStoredMsg(r);
           if(lastMsg !== previously){
@@ -358,7 +363,7 @@
     }
   });
 
-  // Init vid sidladdning: stäng om regnr redan är markerat som stängt i sessionen
+  // Init vid sidladdning: stäng om regnr redan markerats som stängt
   document.addEventListener('DOMContentLoaded', ()=>{
     const r = norm(reg?.value);
     if (r && isClosed(r)) markClosed(r);
