@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html> 
 <html lang="sv">
 <head>
   <meta charset="utf-8"/>
@@ -37,7 +37,7 @@
     input[type="radio"]{ width:18px; height:18px; accent-color:var(--accent); }
 
     .textarea{
-      width:100%; min-height:48px; resize:vertical; border-radius:12px; padding:10px 12px;
+      width:100%; min-height:64px; resize:vertical; border-radius:12px; padding:10px 12px;
       border:1px solid var(--border); background:#fff; color:#0f172a; font-size:16px; margin-top:10px;
     }
 
@@ -58,15 +58,19 @@
       .button,.input{ width:100%; }
       .radios{ flex-direction:column; gap:8px; }
       .chat{ min-height:60dvh; }
-}
-        /* Mindre regnr-fält på mobil */
-@media (max-width:520px){
-  #reg{
-    height: 20px;          /* var 46px */
-    padding: 0 10px;       /* lite tajtare paddning */
-    border-radius: 10px;   /* något mindre rundning */
-    font-size: 16px;       /* behåll 16px för att undvika mobil-zoom */
-  }
+    }
+
+    /* Mindre regnr-fält på mobil – högre specifitet + !important */
+    @media (max-width:520px){
+      .form-card .row #reg.input{
+        height: 38px !important;        /* lägre än standard 46px */
+        padding: 6px 10px !important;   /* tajtare vertikalt */
+        border-radius: 10px !important;
+        line-height: 26px;              /* stabil i webkit */
+        -webkit-appearance: none;
+        appearance: none;
+      }
+    }
   </style>
 </head>
 <body>
